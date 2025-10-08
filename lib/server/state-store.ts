@@ -2,13 +2,14 @@ import { promises as fs } from "fs";
 import path from "path";
 import { emptyUserState, type UserState } from "@/lib/user-state";
 
-const DATA_PATH = path.join(process.cwd(), "data", "user-state.json");
+const DATA_DIR = process.env.VERCEL ? "/tmp" : path.join(process.cwd(), "data");
+const DATA_PATH = path.join(DATA_DIR, "user-state.json");
 
 async function ensureStore() {
   try {
     await fs.access(DATA_PATH);
   } catch {
-    await fs.mkdir(path.dirname(DATA_PATH), { recursive: true });
+    await fs.mkdir(DATA_DIR, { recursive: true });
     await fs.writeFile(DATA_PATH, JSON.stringify({}), "utf8");
   }
 }
