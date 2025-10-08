@@ -1,0 +1,22 @@
+# dependencias y builds
+node_modules/
+.next/
+.turbo/
+out/
+dist/
+.vercel/
+# OS / editor
+.DS_Store
+.vscode/
+# env / claves
+.env
+.env.local
+.env.*.local
+# build cache
+tsconfig.tsbuildinfo
+# binarios y zips
+*.zip
+*.mp4
+*.mov
+*.avi
+*.psd

@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===============  Tema base shadcn + Maná  =============== */
+@layer base {
+  :root {
+    /* Colores brand (HEX por si quieres usarlos directo) */
+    --mana-primary-hex: #293C74;
+    --mana-secondary-hex: #28A6BD;
+    --mana-accent-hex: #F2C35D;
+
+    /* Tokens en HSL que usa shadcn/ui internamente */
+    --background: 215 44% 96%;
+    --foreground: 226 44% 18%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 226 44% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 226 44% 18%;
+
+    --primary: 225 48% 31%; /* #293C74 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 189 65% 45%; /* #28A6BD */
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 43 87% 66%; /* #F2C35D */
+    --accent-foreground: 226 44% 18%;
+
+    --muted: 219 35% 92%;
+    --muted-foreground: 222 20% 45%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 90%;
+    --input: 217 33% 90%;
+    --ring: 225 48% 31%;
+
+    --radius: 14px;
+  }
+
+  .dark {
+    --background: 228 52% 8%;
+    --foreground: 215 41% 92%;
+
+    --card: 228 52% 10%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 228 52% 10%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 225 48% 51%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 189 65% 55%;
+    --secondary-foreground: 228 52% 8%;
+
+    --accent: 43 87% 66%;
+    --accent-foreground: 228 52% 8%;
+
+    --muted: 225 25% 24%;
+    --muted-foreground: 220 20% 70%;
+
+    --destructive: 5 70% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 225 25% 24%;
+    --input: 225 25% 24%;
+    --ring: 225 48% 51%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+    font-family: var(--font-body, "Inter"), system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-head, var(--font-body, "Inter")), system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  a {
+    @apply text-mana-secondary underline-offset-4 transition-colors hover:text-mana-secondaryDark;
+  }
+}
+
+/* Utilidades opcionales */
+.mana-gradient { background: linear-gradient(135deg, var(--mana-primary-hex), var(--mana-secondary-hex)); }
+
+@layer components {
+  .challenge-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .challenge-area-label {
+    font-family: var(--font-head, var(--font-body, "Inter")), system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    font-size: 0.7rem;
+    color: rgba(40, 166, 189, 0.85);
+  }
+
+  .challenge-section-title {
+    margin-top: 1.25rem;
+    margin-bottom: 0.25rem;
+    font-family: var(--font-head, var(--font-body, "Inter")), system-ui, sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(41, 60, 116, 0.9);
+  }
+
+  .challenge-section-content {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(27, 36, 64, 0.82);
+  }
+
+  .challenge-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 0.5rem 0 0;
+  }
+
+  .challenge-list-item {
+    position: relative;
+    padding-left: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(27, 36, 64, 0.82);
+  }
+
+  .challenge-list-item::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: var(--mana-secondary-hex);
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+
+  .challenge-consejo {
+    margin-top: 1.5rem;
+    font-size: 1.05rem;
+    font-style: italic;
+    text-align: center;
+    color: rgba(41, 60, 116, 0.95);
+  }
+}
