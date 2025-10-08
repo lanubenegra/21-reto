@@ -456,6 +456,57 @@ const normalizePersonalTasks = (input: unknown): PersonalTask[] => {
     .filter((item): item is PersonalTask => item !== null);
 };
 
+const isAreaKey = (value: unknown): value is AreaKey =>
+  typeof value === "string" && AREAS.some(area => area.key === value);
+
+const normalizeGoals = (input: unknown): Goal[] => {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map(item => {
+      if (!item || typeof item !== "object") return null;
+      const source = item as Record<string, unknown>;
+      const id = typeof source.id === "string" && source.id.trim() ? source.id : cryptoRandomId();
+      const area = isAreaKey(source.area) ? source.area : "spiritual";
+      const frequency =
+        source.frequency === "weekly" || source.frequency === "monthly" ? source.frequency : "daily";
+      const motivation = source.motivation === "extrinsic" ? "extrinsic" : "intrinsic";
+      const hour = typeof source.hour === "string" ? source.hour : "06:00";
+      const objective = stringValue(source.objective);
+      const goal = stringValue(source.goal);
+      const indicator = stringValue(source.indicator);
+      const action = stringValue(source.action);
+      if (!objective && !goal && !indicator) return null;
+      return {
+        id,
+        area,
+        objective,
+        goal,
+        indicator,
+        frequency,
+        hour,
+        motivation,
+        action,
+      } as Goal;
+    })
+    .filter((item): item is Goal => item !== null);
+};
+
+const normalizeEntries = (input: unknown): EntriesMap => {
+  if (!input || typeof input !== "object") return {};
+  const result: EntriesMap = {};
+  Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+    const dayNumber = Number(key);
+    if (!Number.isInteger(dayNumber)) return;
+    if (!value || typeof value !== "object") return;
+    const source = value as Record<string, unknown>;
+    const payload = normalizePayload(source.payload as ChallengePayload);
+    const date = typeof source.date === "string" ? source.date : isoDateString(new Date());
+    const note = typeof source.note === "string" ? source.note : undefined;
+    result[dayNumber] = note ? { payload, date, note } : { payload, date };
+  });
+  return result;
+};
+
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "Lunes" },
   { value: 2, label: "Martes" },
@@ -744,7 +795,9 @@ const CHALLENGES: ChallengeDefinition[] = [
     deseoConservar: "La claridad sobre lo que Dios me pidió priorizar.",
     deseoEvitar: "Divagar sin rumbo ni seguimiento.",
     deseoEliminar: "La improvisación que desperdicia recursos y tiempo.",
-    consejoMana: "Revisa tu plan cada semana y celebra los pequeños avances."
+    consejoMana: "Revisa tu plan cada semana y celebra los pequeños avances.",
+    resumen: "Escribe un plan de vida integral con metas claras por área.",
+    instrucciones: "Evalúa cada área con honestidad, define una meta específica, asigna un indicador y una acción inicial. Agenda la fecha de revisión para sostener el plan."
   },
   {
     day: day(12),
@@ -1038,10 +1091,10 @@ const areaScores = useMemo(() => {
         });
         setInitialAssess(ensureAssess(remote.initialAssess));
         setFinalAssess(ensureAssess(remote.finalAssess));
-        setEntries(remote.entries ?? {});
+        setEntries(normalizeEntries(remote.entries));
         setCompletedDays(remote.completedDays ?? []);
         setDiary(remote.diary ?? []);
-        setGoals(remote.goals ?? []);
+        setGoals(normalizeGoals(remote.goals));
         setGoalLogs(remote.goalLogs ?? []);
         setSignature(remote.signature ?? null);
         setActionDates(remote.actionDates ?? []);
@@ -1092,7 +1145,7 @@ const areaScores = useMemo(() => {
       personalTasks,
       budget: budgetState,
       diary,
-      goals,
+      goals: goals.map(goal => ({ ...goal })) as Array<Record<string, unknown>>,
       goalLogs,
       signature,
       actionDates,
@@ -1764,7 +1817,7 @@ function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onO
 function Interaction({ type, payload, setPayload }: InteractionProps) {
   const [running, setRunning] = useState(false);
   const [seconds, setSeconds] = useState<number>(() => numberValue(payload.seconds, TIMER_PREVIEW_SECONDS));
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioMuted, setAudioMuted] = useState(false);
 
@@ -1777,7 +1830,7 @@ function Interaction({ type, payload, setPayload }: InteractionProps) {
   }, [seconds, setPayload]);
 
   useEffect(() => () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
   }, []);
 
   useEffect(() => {
@@ -1797,7 +1850,7 @@ function Interaction({ type, payload, setPayload }: InteractionProps) {
     intervalRef.current = window.setInterval(() => {
       setSeconds(current => {
         if (current <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
+          if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
           setRunning(false);
           if (audioRef.current) {
             audioRef.current.pause();
@@ -1812,7 +1865,7 @@ function Interaction({ type, payload, setPayload }: InteractionProps) {
 
   function stopTimer() {
     setRunning(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
     intervalRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
