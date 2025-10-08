@@ -3,7 +3,10 @@ import path from "path";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
-const DATA_PATH = path.join(process.cwd(), "data", "users.json");
+const DATA_ROOT = process.cwd();
+const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "21-retos") : path.join(DATA_ROOT, "data");
+const DATA_PATH = path.join(DATA_DIR, "users.json");
+const SEED_PATH = path.join(DATA_ROOT, "data", "users.json");
 
 type StoredUser = {
   id: string;
@@ -28,9 +31,14 @@ async function ensureFile() {
   try {
     await fs.access(DATA_PATH);
   } catch {
-    const initial: UsersFile = { users: [], resetTokens: [] };
-    await fs.mkdir(path.dirname(DATA_PATH), { recursive: true });
-    await fs.writeFile(DATA_PATH, JSON.stringify(initial, null, 2), "utf8");
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    try {
+      const seed = await fs.readFile(SEED_PATH, "utf8");
+      await fs.writeFile(DATA_PATH, seed, "utf8");
+    } catch {
+      const initial: UsersFile = { users: [], resetTokens: [] };
+      await fs.writeFile(DATA_PATH, JSON.stringify(initial, null, 2), "utf8");
+    }
   }
 }
 
@@ -47,6 +55,7 @@ async function readFile(): Promise<UsersFile> {
 }
 
 async function writeFile(payload: UsersFile) {
+  await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(DATA_PATH, JSON.stringify(payload, null, 2), "utf8");
 }
 
