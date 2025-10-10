@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function verifyWompiSignature(raw: string, signature: string) {
   const secret = process.env.WOMPI_EVENT_SECRET!;
   const hash = crypto.createHmac("sha256", secret).update(raw).digest("hex");
