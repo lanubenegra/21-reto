@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function authHeaders() {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
+}
 
 export async function GET() {
-  const db = supabaseAdmin();
-
   try {
-    const { error } = await db.from("profiles").select("id").limit(1);
-    if (error) {
-      if (error.code === "42P01") {
-        return NextResponse.json({
-          ok: true,
-          message: "Conexión OK, tabla profiles todavía no existe (ejecuta el SQL).",
-        });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, message: "Conexión OK y tabla profiles accesible." });
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const url = `${baseUrl}/rest/v1/prices?select=id&limit=1`;
+    const response = await fetch(url, { headers: authHeaders() });
+    const body = await response.json().catch(() => ({}));
+    return NextResponse.json({ ok: response.ok, status: response.status, body });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Error desconocido";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: message,
+        haveUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+        haveAnon: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      },
+      { status: 500 }
+    );
   }
 }
