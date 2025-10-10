@@ -3,28 +3,26 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authHeaders() {
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return { apikey: anonKey, Authorization: `Bearer ${anonKey}` };
+function headersFor(kind: "anon" | "service") {
+  const key =
+    kind === "service"
+      ? process.env.SUPABASE_SERVICE_ROLE!
+      : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return { apikey: key, Authorization: `Bearer ${key}` };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const useService = new URL(request.url).searchParams.get("use") === "service";
+  const mode = useService ? "service_role" : "anon/publishable";
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const url = `${baseUrl}/rest/v1/prices?select=id&limit=1`;
-    const response = await fetch(url, { headers: authHeaders() });
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const response = await fetch(`${base}/rest/v1/prices?select=id&limit=1`, {
+      headers: headersFor(useService ? "service" : "anon"),
+    });
     const body = await response.json().catch(() => ({}));
-    return NextResponse.json({ ok: response.ok, status: response.status, body });
+    return NextResponse.json({ ok: response.ok, status: response.status, by: mode, body });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: message,
-        haveUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-        haveAnon: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: message, by: mode }, { status: 500 });
   }
 }
