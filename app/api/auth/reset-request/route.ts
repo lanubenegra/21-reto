@@ -17,7 +17,8 @@ export async function POST(request: Request) {
   if (!tokenData) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
-  // En un entorno real enviaríamos un correo. De momento lo registramos en logs de servidor.
-  console.info(`Token de reseteo para ${email}: ${tokenData.token}`);
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`Token de reseteo para ${email}: ${tokenData.token}`);
+  }
   return NextResponse.json({ ok: true }, { status: 200 });
 }
