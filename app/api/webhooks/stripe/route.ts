@@ -31,7 +31,14 @@ export async function POST(req: Request) {
     if (isCheckoutSession(payload)) {
       email = payload.customer_details?.email ?? payload.customer_email ?? null;
     } else if (isPaymentIntent(payload)) {
-      email = payload.receipt_email ?? payload.latest_charge?.billing_details?.email ?? null;
+      const latestCharge = payload.latest_charge;
+      let chargeEmail: string | null = null;
+      if (latestCharge && typeof latestCharge !== "string") {
+        chargeEmail = latestCharge.billing_details?.email ?? null;
+      } else if (payload.charges?.data?.length) {
+        chargeEmail = payload.charges.data[0]?.billing_details?.email ?? null;
+      }
+      email = payload.receipt_email ?? chargeEmail;
     }
 
     const metadataSku = payload.metadata?.sku;
