@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     if (isCheckoutSession(payload)) {
       email = payload.customer_details?.email ?? payload.customer_email ?? null;
     } else if (isPaymentIntent(payload)) {
-      email = payload.receipt_email ?? payload.charges?.data?.[0]?.billing_details?.email ?? null;
+      email = payload.receipt_email ?? payload.latest_charge?.billing_details?.email ?? null;
     }
 
     const metadataSku = payload.metadata?.sku;
