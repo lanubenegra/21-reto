@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Home, BookOpen, CalendarDays, BarChart2, ClipboardList, NotebookPen, CheckCircle2, Play, Pause, ShieldCheck, Signature, Plus, Check, Trash2, Search, X } from "lucide-react";
+import { Flame, Home, BookOpen, CalendarDays, BarChart2, ClipboardList, NotebookPen, CheckCircle2, Play, Pause, ShieldCheck, Signature, Plus, Check, Trash2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import AuthMenu from "@/components/auth/AuthMenu";
 import { useSession } from "next-auth/react";
@@ -19,6 +19,7 @@ import Link from "next/link";
 import type { BudgetCategoryKey, BudgetEntry, BudgetMonth, BudgetState, PersonalTask, TaskFrequency, UserState } from "@/lib/user-state";
 import { emptyBudgetState } from "@/lib/user-state";
 import { cn } from "@/lib/utils";
+import { getBibleBooksMetadata, getBibleChapterContent, parseReference, type BibleBookSummary, type NormalizedPassage } from "@/lib/rvr1960";
 
 // =====================
 // Utilidades y datos base
@@ -262,6 +263,7 @@ interface ProgressCalendarProps {
 interface BudgetPlannerProps {
   budgetState: BudgetState;
   setBudgetState: React.Dispatch<React.SetStateAction<BudgetState>>;
+  onOpenReference?: (reference: string) => void;
 }
 
 interface PersonalPlanSectionProps {
@@ -608,6 +610,92 @@ const AREA_PROGRESS_STEPS: Record<AreaKey, number> = {
   relational: 1.69,
 };
 
+type HighlightMap = Record<number, number[] | "all">;
+
+type HighlightContext = {
+  bookAbbrev: string;
+  chapters: HighlightMap;
+};
+
+const buildHighlightMap = (passages: NormalizedPassage[], targetBook: string): HighlightMap => {
+  const map: HighlightMap = {};
+
+  for (const passage of passages) {
+    if (passage.bookAbbrev !== targetBook) continue;
+    if (!passage.verses || passage.verses.length === 0) {
+      map[passage.chapter] = "all";
+      continue;
+    }
+    const existing = map[passage.chapter];
+    if (existing === "all") continue;
+    const accumulator = new Set(existing ?? []);
+    for (const range of passage.verses) {
+      for (let verse = range.start; verse <= range.end; verse += 1) {
+        accumulator.add(verse);
+      }
+    }
+    map[passage.chapter] = Array.from(accumulator).sort((a, b) => a - b);
+  }
+
+  return map;
+};
+
+const SCRIPTURE_CANDIDATE_PATTERN =
+  String.raw`\b(?:[1-3]?\s?(?:[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{2,}\.?)(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{2,}\.?)*\s*\d+(?::\d+(?:[-–]\d+)?)?(?:[-–]\d+)?(?:\s*,\s*\d+(?::\d+(?:[-–]\d+)?)?)*)`;
+
+const sanitizeReferenceCandidate = (value: string): string =>
+  value
+    .replace(/^[\s"'“”¡¿(\[]+/, "")
+    .replace(/[\s"'“”¡¿)\].,;:!?]+$/, "")
+    .trim();
+
+const renderWithScriptureLinks = (
+  text: string,
+  onOpen: (reference: string) => void,
+): React.ReactNode[] => {
+  if (!text) return [text];
+  const nodes: React.ReactNode[] = [];
+  const regex = new RegExp(SCRIPTURE_CANDIDATE_PATTERN, "giu");
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const start = match.index;
+    const end = regex.lastIndex;
+    if (start > lastIndex) {
+      nodes.push(text.slice(lastIndex, start));
+    }
+    const rawMatch = match[0];
+    const sanitized = sanitizeReferenceCandidate(rawMatch);
+    if (sanitized) {
+      try {
+        parseReference(sanitized);
+        nodes.push(
+          <button
+            key={`scripture-${start}-${end}`}
+            type="button"
+            className="inline font-semibold text-mana-primary underline underline-offset-2 hover:text-mana-primaryDark"
+            onClick={() => onOpen(sanitized)}
+          >
+            {rawMatch.trim()}
+          </button>,
+        );
+      } catch {
+        nodes.push(rawMatch);
+      }
+    } else {
+      nodes.push(rawMatch);
+    }
+    lastIndex = end;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+};
+
 // 21 retos con tipo de interacción y áreas impactadas (peso simple para MVP)
 const CHALLENGES: ChallengeDefinition[] = [
   {
@@ -631,7 +719,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(2),
     title: "Lea Esto Todos los Días para Mantenerse Enfocado",
-    verse: "Sal 119",
+    verse: "Sal 119:105",
     youtubeId: "IJTwn9C29bE",
     interaction: "two-fields",
     areas: { spiritual: 1, mental: .5 },
@@ -649,6 +737,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(3),
     title: "Cambie su Dieta una Vez a la Semana",
+    verse: "1 Co 6:19-20",
     youtubeId: "J9j4QcmXzH4",
     interaction: "date+reason",
     areas: { spiritual: 1, physical: .5 },
@@ -666,6 +755,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(4),
     title: "Hay Algo que Dejar Este Año",
+    verse: "Fil 3:13-14",
     youtubeId: "X9JQisqSIIo",
     interaction: "declaration+verse",
     areas: { mental: 1, spiritual: .5 },
@@ -683,6 +773,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(5),
     title: "Visita Estos Lugares y Estarás Conectado",
+    verse: "Heb 10:24-25",
     youtubeId: "q-E50EYyYiE",
     interaction: "place-select",
     areas: { spiritual: .5, relational: 1 },
@@ -700,6 +791,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(6),
     title: "Cómo Ganar el Juego de los Dardos",
+    verse: "Ef 6:16",
     youtubeId: "J0TRG83i-IE",
     interaction: "negative+scripture",
     areas: { mental: 1, emotional: .5 },
@@ -717,6 +809,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(7),
     title: "Cómo Cambiar el Pesimismo por Confianza",
+    verse: "Ro 15:13",
     youtubeId: "6QcworkCgTg",
     interaction: "mini-quiz",
     areas: { mental: 1, emotional: .5 },
@@ -734,6 +827,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(8),
     title: "Cazando los Gigantes de la Adicción",
+    verse: "1 Co 10:13",
     youtubeId: "xyxan4cjy0c",
     interaction: "habit+reminder",
     areas: { spiritual: .5, mental: .5, emotional: .5, physical: .5 },
@@ -751,6 +845,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(9),
     title: "Arme las Piezas de un Corazón Roto",
+    verse: "Sal 147:3",
     youtubeId: "wEtv4RjlwtI",
     interaction: "healing-letter",
     areas: { emotional: 2 },
@@ -768,6 +863,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(10),
     title: "Sea un Líder por un Día",
+    verse: "Mr 10:45",
     youtubeId: "zgSFYu7M74o",
     interaction: "service-check",
     areas: { relational: 1, spiritual: .5, work: .5 },
@@ -785,6 +881,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(11),
     title: "Un Plan de Vida para Llegar",
+    verse: "Jer 29:11",
     youtubeId: "-8XMOxjgFFI",
     interaction: "goals-table",
     areas: { spiritual: .2, mental: .2, emotional: .2, physical: .2, financial: .2, work: .2, relational: .2 },
@@ -802,6 +899,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(12),
     title: "Nadie Sabe lo que Tiene hasta que no lo Escribe",
+    verse: "Hab 2:2",
     youtubeId: "gkhNEQWU1qs",
     interaction: "mini-budget",
     areas: { financial: 2 },
@@ -819,6 +917,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(13),
     title: "Gaste con Inteligencia",
+    verse: "Pr 21:5",
     youtubeId: "SqhQy0pQDYA",
     interaction: "cut+reinvest",
     areas: { financial: 1 },
@@ -836,6 +935,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(14),
     title: "Cómo Invertir en el Reino de Dios",
+    verse: "2 Co 9:6-7",
     youtubeId: "qSD1kEaWlHs",
     interaction: "petitions+verse",
     areas: { financial: 1, spiritual: .5 },
@@ -853,6 +953,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(15),
     title: "Active su Red de Amigos",
+    verse: "Ec 4:9-10",
     youtubeId: "BdXKs6lZD4Y",
     interaction: "friends+action",
     areas: { relational: 2 },
@@ -870,6 +971,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(16),
     title: "Haga Esto y Mejore sus Relaciones",
+    verse: "Col 3:12-14",
     youtubeId: "2thwYkQKBhk",
     interaction: "relation-skill",
     areas: { relational: 1, emotional: .5 },
@@ -887,6 +989,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(17),
     title: "La Salud Física es un Reflejo de la Salud Espiritual",
+    verse: "3 Jn 2",
     youtubeId: "4wb9CgwMJ2Y",
     interaction: "health-daily",
     areas: { physical: 2, emotional: .5 },
@@ -904,6 +1007,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(18),
     title: "La Comida en la Biblia y sus Discusiones",
+    verse: "1 Co 10:31",
     youtubeId: "EwZqqQ4nMfU",
     interaction: "menu+gratitude",
     areas: { physical: 1, spiritual: .5 },
@@ -921,6 +1025,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(19),
     title: "Descansa, Dice Dios",
+    verse: "Mt 11:28-29",
     youtubeId: "rRB4beBCX0E",
     interaction: "rest-choice",
     areas: { emotional: 1, spiritual: .5, relational: .5 },
@@ -938,6 +1043,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(20),
     title: "Convirtiendo los Retos en Proyectos de Vida",
+    verse: "Pr 16:3",
     youtubeId: "3WQTyyFDt60",
     interaction: "matrix-table",
     areas: { spiritual: .2, mental: .2, emotional: .2, physical: .2, financial: .2, work: .2, relational: .2 },
@@ -955,6 +1061,7 @@ const CHALLENGES: ChallengeDefinition[] = [
   {
     day: day(21),
     title: "Hoy Tengo que Decidir a Quién Tengo que Servir",
+    verse: "Jos 24:15",
     youtubeId: "ro2DYZZZ5PU",
     interaction: "signature+certificate",
     areas: { spiritual: 3 },
@@ -1568,7 +1675,11 @@ const areaScores = useMemo(() => {
 
           {/* ================= Presupuesto ================= */}
           <TabsContent value="budget" className="mt-6">
-            <BudgetPlanner budgetState={budgetState} setBudgetState={setBudgetState} />
+            <BudgetPlanner
+              budgetState={budgetState}
+              setBudgetState={setBudgetState}
+              onOpenReference={reference => setOpenBibleReference(reference)}
+            />
           </TabsContent>
 
           {/* ================= Diario ================= */}
@@ -1594,46 +1705,181 @@ const areaScores = useMemo(() => {
 // =====================
 function BibleModal({ reference, onClose }: { reference: string | null; onClose: () => void }) {
   const [query, setQuery] = useState(reference ?? "");
-  const [content, setContent] = useState<string>("");
+  const [books, setBooks] = useState<BibleBookSummary[]>([]);
+  const [selectedBook, setSelectedBook] = useState<string | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<number>(1);
+  const [chapterVerses, setChapterVerses] = useState<string[]>([]);
+  const [currentBookLabel, setCurrentBookLabel] = useState<string>("");
+  const [currentBookChapters, setCurrentBookChapters] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [headerTitle, setHeaderTitle] = useState(reference ?? "");
+  const [highlightContext, setHighlightContext] = useState<HighlightContext | null>(null);
 
-  const fetchPassage = useCallback(async (ref: string) => {
-    if (!ref.trim()) {
-      setError("Ingresa una cita bíblica para consultar.");
-      setContent("");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const encoded = encodeURIComponent(ref.trim());
-      const response = await fetch(`https://bible-api.com/${encoded}?translation=rvr1960`);
-      if (!response.ok) throw new Error("request_failed");
-      const data = await response.json() as { text?: string; verses?: Array<{ book_name: string; chapter: number; verse: number; text: string }>; reference?: string };
-      if (data.text) {
-        setContent(data.text);
-      } else if (Array.isArray(data.verses) && data.verses.length > 0) {
-        setContent(data.verses.map(item => `${item.book_name} ${item.chapter}:${item.verse} ${item.text}`).join("\n"));
-      } else {
-        setError("No se encontró el pasaje solicitado en la RVR1960.");
-        setContent("");
+  const booksRef = useRef<BibleBookSummary[]>([]);
+  const mountedRef = useRef(true);
+  const versesContainerRef = useRef<HTMLDivElement | null>(null);
+  const verseRefs = useRef<Record<number, HTMLParagraphElement | null>>({});
+  const autoScrollKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const ensureMetadata = useCallback(async (): Promise<BibleBookSummary[]> => {
+    if (booksRef.current.length === 0) {
+      const metadata = await getBibleBooksMetadata();
+      booksRef.current = metadata;
+      if (mountedRef.current) {
+        setBooks(metadata);
       }
-    } catch (err) {
-      console.warn("No fue posible obtener el pasaje", err);
-      setError("No fue posible obtener el pasaje. Verifica tu conexión o añade una base de datos local de la Biblia RVR1960.");
-      setContent("");
-    } finally {
-      setLoading(false);
     }
+    return booksRef.current;
   }, []);
 
   useEffect(() => {
-    if (reference) {
-      setQuery(reference);
-      fetchPassage(reference);
+    void ensureMetadata();
+  }, [ensureMetadata]);
+
+  const loadChapter = useCallback(async (bookAbbrev: string, chapter: number) => {
+    const data = await getBibleChapterContent(bookAbbrev, chapter);
+    if (!mountedRef.current) return null;
+    verseRefs.current = {};
+    autoScrollKeyRef.current = null;
+    setSelectedBook(bookAbbrev);
+    setSelectedChapter(chapter);
+    setChapterVerses(data.verses);
+    setCurrentBookLabel(data.bookLabel);
+    setCurrentBookChapters(data.totalChapters);
+    return data;
+  }, []);
+
+  const handleReference = useCallback(
+    async (rawRef: string) => {
+      const trimmed = rawRef.trim();
+      if (!trimmed) {
+        setError("Ingresa una cita bíblica para consultar.");
+        setChapterVerses([]);
+        setHighlightContext(null);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const metadata = await ensureMetadata();
+        const passages = parseReference(trimmed);
+        if (passages.length === 0) throw new Error("No se reconoció la cita bíblica.");
+        const first = passages[0];
+        const bookExists = metadata.some(book => book.abbrev === first.bookAbbrev);
+        if (!bookExists) throw new Error("El libro solicitado no está disponible en la Biblia local.");
+        const highlightMap = buildHighlightMap(passages, first.bookAbbrev);
+        const data = await loadChapter(first.bookAbbrev, first.chapter);
+        if (!mountedRef.current || !data) return;
+        setHighlightContext({ bookAbbrev: first.bookAbbrev, chapters: highlightMap });
+        setHeaderTitle(trimmed);
+        setQuery(trimmed);
+      } catch (err) {
+        if (!mountedRef.current) return;
+        const message = err instanceof Error ? err.message : "No fue posible obtener el pasaje.";
+        setError(message);
+        setChapterVerses([]);
+        setHighlightContext(null);
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    },
+    [ensureMetadata, loadChapter],
+  );
+
+  const handleManualNavigation = useCallback(
+    async (bookAbbrev: string, chapter: number, options?: { resetHighlight?: boolean }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        await ensureMetadata();
+        const data = await loadChapter(bookAbbrev, chapter);
+        if (!mountedRef.current || !data) return;
+        if (options?.resetHighlight || (highlightContext && highlightContext.bookAbbrev !== bookAbbrev)) {
+          setHighlightContext(null);
+        }
+        setHeaderTitle(`${data.bookLabel} ${data.chapter}`);
+        setQuery(`${data.bookLabel} ${data.chapter}`);
+      } catch (err) {
+        if (!mountedRef.current) return;
+        const message = err instanceof Error ? err.message : "No fue posible cargar el capítulo solicitado.";
+        setError(message);
+        setChapterVerses([]);
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    },
+    [ensureMetadata, loadChapter, highlightContext],
+  );
+
+  const handleInlineReference = useCallback(
+    (ref: string) => {
+      setQuery(ref);
+      void handleReference(ref);
+    },
+    [handleReference],
+  );
+
+  useEffect(() => {
+    if (!reference) return;
+    setQuery(reference);
+    setHeaderTitle(reference);
+    void handleReference(reference);
+  }, [reference, handleReference]);
+
+  const highlightForChapter = useMemo(() => {
+    if (!highlightContext || highlightContext.bookAbbrev !== selectedBook) return null;
+    return highlightContext.chapters[selectedChapter] ?? null;
+  }, [highlightContext, selectedBook, selectedChapter]);
+
+  const chaptersAvailable = useMemo(() => {
+    if (selectedBook) {
+      const meta = books.find(book => book.abbrev === selectedBook);
+      if (meta) return meta.chapters;
     }
-  }, [reference, fetchPassage]);
+    return currentBookChapters;
+  }, [books, selectedBook, currentBookChapters]);
+
+  const highlightedVerses = useMemo(() => {
+    if (!highlightForChapter) return new Set<number>();
+    if (highlightForChapter === "all") {
+      return new Set(chapterVerses.map((_, index) => index + 1));
+    }
+    return new Set(highlightForChapter);
+  }, [highlightForChapter, chapterVerses]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!selectedBook || !highlightForChapter || chapterVerses.length === 0) return;
+    if (Array.isArray(highlightForChapter) && highlightForChapter.length === 0) return;
+    const container = versesContainerRef.current;
+    if (!container) return;
+
+    const targetVerseNumber = highlightForChapter === "all" ? 1 : highlightForChapter[0];
+    if (!targetVerseNumber || Number.isNaN(targetVerseNumber)) return;
+    const targetElement = verseRefs.current[targetVerseNumber];
+    if (!targetElement) return;
+
+    const key = `${selectedBook}-${selectedChapter}-${highlightForChapter === "all" ? "all" : highlightForChapter.join(",")}`;
+    if (autoScrollKeyRef.current === key) return;
+    autoScrollKeyRef.current = key;
+
+    if (typeof targetElement.scrollIntoView === "function") {
+      targetElement.scrollIntoView({ block: "center", behavior: "smooth" });
+    } else {
+      const offsetTop = targetElement.offsetTop;
+      const targetScroll = Math.max(offsetTop - 72, 0);
+      container.scrollTo({ top: targetScroll, behavior: "smooth" });
+    }
+  }, [highlightForChapter, chapterVerses, loading, selectedBook, selectedChapter]);
+
+  const hasContent = chapterVerses.length > 0;
 
   if (!reference) return null;
 
@@ -1643,7 +1889,7 @@ function BibleModal({ reference, onClose }: { reference: string | null; onClose:
         <div className="flex items-center justify-between border-b border-mana-primary/10 px-6 py-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-mana-muted">Biblia RVR1960</p>
-            <h3 className="font-display text-lg text-mana-primary">{reference}</h3>
+            <h3 className="font-display text-lg text-mana-primary">{headerTitle || `${currentBookLabel} ${selectedChapter}`}</h3>
           </div>
           <button className="rounded-full bg-mana-primary/10 p-2 text-mana-primary transition hover:bg-mana-primary/20" onClick={onClose} aria-label="Cerrar">
             <X className="h-4 w-4" />
@@ -1654,23 +1900,129 @@ function BibleModal({ reference, onClose }: { reference: string | null; onClose:
             className="flex flex-col gap-3 sm:flex-row"
             onSubmit={event => {
               event.preventDefault();
-              fetchPassage(query);
+              void handleReference(query);
             }}
           >
-            <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Ej: Juan 15:5" />
+            <Input
+              value={query}
+              onChange={event => {
+                setQuery(event.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="Ej: Juan 15:5"
+            />
             <Button type="submit" className="sm:w-36">
               <Search className="mr-2 h-4 w-4" />Buscar
             </Button>
           </form>
-          <div className="h-80 overflow-y-auto rounded-2xl border border-mana-primary/10 bg-white/80 p-4 text-sm text-mana-ink/80">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+              <Select
+                value={selectedBook ?? undefined}
+                onValueChange={value => {
+                  void handleManualNavigation(value, 1, { resetHighlight: true });
+                }}
+                disabled={loading || books.length === 0}
+              >
+                <SelectTrigger className="sm:w-48">
+                  <SelectValue placeholder="Selecciona un libro" />
+                </SelectTrigger>
+                <SelectContent>
+                  {books.map(book => (
+                    <SelectItem key={book.abbrev} value={book.abbrev}>
+                      {book.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={selectedBook ? String(selectedChapter) : undefined}
+                onValueChange={value => {
+                  if (!selectedBook) return;
+                  const chapter = Number.parseInt(value, 10);
+                  if (Number.isNaN(chapter)) return;
+                  void handleManualNavigation(selectedBook, chapter);
+                }}
+                disabled={loading || !selectedBook}
+              >
+                <SelectTrigger className="sm:w-32">
+                  <SelectValue placeholder="Capítulo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: chaptersAvailable || 0 }, (_, index) => index + 1).map(chapter => (
+                    <SelectItem key={chapter} value={String(chapter)}>
+                      Capítulo {chapter}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                disabled={!selectedBook || selectedChapter <= 1 || loading}
+                onClick={() => {
+                  if (!selectedBook || selectedChapter <= 1) return;
+                  void handleManualNavigation(selectedBook, selectedChapter - 1);
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                disabled={!selectedBook || !chaptersAvailable || selectedChapter >= chaptersAvailable || loading}
+                onClick={() => {
+                  if (!selectedBook || !chaptersAvailable || selectedChapter >= chaptersAvailable) return;
+                  void handleManualNavigation(selectedBook, selectedChapter + 1);
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div ref={versesContainerRef} className="h-80 overflow-y-auto rounded-2xl border border-mana-primary/10 bg-white/80 p-4 text-sm text-mana-ink/80">
             {loading && <p className="text-mana-muted">Buscando el pasaje…</p>}
             {!loading && error && <p className="text-rose-600">{error}</p>}
-            {!loading && !error && content && (
-              <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed">{content}</pre>
+            {!loading && !error && hasContent && (
+              <div className="space-y-2">
+                {chapterVerses.map((verse, index) => {
+                  const verseNumber = index + 1;
+                  const isHighlighted = highlightedVerses.has(verseNumber);
+                  return (
+                    <p
+                      key={verseNumber}
+                      ref={element => {
+                        verseRefs.current[verseNumber] = element;
+                      }}
+                      className={cn(
+                        "rounded-xl px-3 py-2 leading-relaxed transition",
+                        isHighlighted ? "bg-mana-primary/20 text-mana-primaryDark ring-2 ring-mana-primary/40 shadow-sm" : "hover:bg-mana-primary/5",
+                      )}
+                    >
+                      <span className="mr-2 font-semibold text-mana-primary">{verseNumber}</span>
+                      <span>{verse}</span>
+                    </p>
+                  );
+                })}
+              </div>
             )}
-            {!loading && !error && !content && <p className="text-mana-muted">Ingresa un pasaje para visualizarlo en la Reina Valera 1960.</p>}
+            {!loading && !error && !hasContent && <p className="text-mana-muted">Selecciona un pasaje para visualizarlo en la Reina Valera 1960.</p>}
           </div>
-          <p className="text-xs text-mana-muted">Sugerencia: puedes escribir múltiples versículos, por ejemplo “Salmo 23” o “Filipenses 4:4-7”.</p>
+          <p className="text-xs text-mana-muted">
+            Tip:{" "}
+            <span>
+              {renderWithScriptureLinks(
+                "puedes escribir citas (p. ej. “Salmo 23” o “Filipenses 4:4-7”) o navegar por libro y capítulo con los selectores.",
+                handleInlineReference,
+              )}
+            </span>
+          </p>
         </div>
       </div>
     </div>
@@ -1712,13 +2064,19 @@ function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onO
             <div className="challenge-area-label">Área: Vida {ch.area}</div>
             <div className="space-y-2 rounded-lg border border-mana-primary/10 bg-mana-primary/5 p-4">
               <h3 className="challenge-section-title">Contenido devocional</h3>
-              <p className="challenge-section-content whitespace-pre-line">{ch.contenidoDevocional}</p>
+              <p className="challenge-section-content whitespace-pre-line">
+                {renderWithScriptureLinks(ch.contenidoDevocional, onOpenReference)}
+              </p>
             </div>
 
             <div className="space-y-2 rounded-2xl border border-mana-primary/10 bg-white/85 p-5 shadow-sm">
               <h3 className="font-display text-base text-mana-primary">Resumen del reto</h3>
-              <p className="text-sm font-medium text-mana-ink/80">{ch.resumen}</p>
-              <p className="text-sm leading-relaxed text-mana-ink/70">{ch.instrucciones}</p>
+              <p className="text-sm font-medium text-mana-ink/80">
+                {renderWithScriptureLinks(ch.resumen, onOpenReference)}
+              </p>
+              <p className="text-sm leading-relaxed text-mana-ink/70">
+                {renderWithScriptureLinks(ch.instrucciones, onOpenReference)}
+              </p>
             </div>
 
             {/* Interacción dinámica */}
@@ -1797,7 +2155,11 @@ function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onO
           <CardHeader className="pb-2"><CardTitle className="font-display text-base text-mana-primary">Resumen del día</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm text-mana-ink/80">
             <p className="challenge-area-label text-[0.6rem]">Área: Vida {ch.area}</p>
-            <div><span className="text-mana-muted">Resumen:</span><br/>{ch.resumen}</div>
+            <div>
+              <span className="text-mana-muted">Resumen:</span>
+              <br />
+              <span>{renderWithScriptureLinks(ch.resumen, onOpenReference)}</span>
+            </div>
             <div><span className="text-mana-muted">Áreas impactadas:</span><br/>{Object.keys(ch.areas).map(k => AREAS.find(a=>a.key===k)?.name).join(", ")}</div>
             <div><span className="text-mana-muted">Dinámica:</span><br/><span className="font-medium text-mana-primary">{INTERACTION_LABELS[ch.interaction]}</span></div>
             <div className="text-mana-muted">Estado: {entries[ch.day] ? <span className="font-medium text-green-600">Completado</span> : <span className="font-medium text-amber-600">Pendiente</span>}</div>
@@ -1806,7 +2168,11 @@ function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onO
 
         <Card className="border-none bg-white/85 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="font-display text-base text-mana-primary">Consejo Maná</CardTitle></CardHeader>
-          <CardContent className="challenge-consejo text-sm text-mana-ink/80">{`"${ch.consejoMana}"`}</CardContent>
+          <CardContent className="challenge-consejo text-sm text-mana-ink/80">
+            <span className="mr-1 text-mana-muted">“</span>
+            <span>{renderWithScriptureLinks(ch.consejoMana, onOpenReference)}</span>
+            <span className="ml-1 text-mana-muted">”</span>
+          </CardContent>
         </Card>
       </div>
     </div>
@@ -3002,7 +3368,7 @@ function PersonalPlanSection({ tasks, setTasks }: PersonalPlanSectionProps) {
   );
 }
 
-function BudgetPlanner({ budgetState, setBudgetState }: BudgetPlannerProps) {
+function BudgetPlanner({ budgetState, setBudgetState, onOpenReference }: BudgetPlannerProps) {
   useEffect(() => {
     setBudgetState(prev => {
       const key = prev.activeMonth || new Date().toISOString().slice(0, 7);
@@ -3278,7 +3644,11 @@ function BudgetPlanner({ budgetState, setBudgetState }: BudgetPlannerProps) {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="font-medium text-mana-primary">{category.name}</p>
-                        <p className="text-xs text-mana-muted">{category.description}</p>
+                        <p className="text-xs text-mana-muted">
+                          {onOpenReference
+                            ? renderWithScriptureLinks(category.description, onOpenReference)
+                            : category.description}
+                        </p>
                       </div>
                       <div className="text-right text-xs text-mana-muted">
                         <div><span className="font-semibold text-mana-primary">{allocation}%</span> del ingreso</div>
