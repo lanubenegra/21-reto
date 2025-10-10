@@ -17,21 +17,33 @@ export async function POST(req: Request) {
   }
 
   if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-    const data: any = event.data.object;
-    const email =
-      data?.customer_details?.email ||
-      data?.customer_email ||
-      data?.charges?.data?.[0]?.billing_details?.email ||
-      null;
+    const payload = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
 
-    const sku = data?.metadata?.sku ?? "retos";
-    const amount = data?.amount_total ? data.amount_total / 100 : null;
-    const currency = data?.currency?.toUpperCase() ?? null;
+    let email: string | null = null;
+    if ("customer_details" in payload && payload.customer_details?.email) {
+      email = payload.customer_details.email;
+    } else if ("customer_email" in payload && payload.customer_email) {
+      email = payload.customer_email;
+    } else if ("charges" in payload && payload.charges?.data?.length) {
+      email = payload.charges.data[0]?.billing_details?.email ?? null;
+    }
+
+    const sku =
+      ("metadata" in payload && payload.metadata?.sku ? String(payload.metadata.sku) : null) ??
+      "retos";
+    const amountRaw =
+      "amount_total" in payload
+        ? payload.amount_total
+        : "amount_received" in payload
+          ? payload.amount_received
+          : null;
+    const amount = typeof amountRaw === "number" ? amountRaw / 100 : null;
+    const currency = payload.currency ? payload.currency.toUpperCase() : null;
 
     const db = supabaseAdmin();
     await db
       .from("orders")
-      .insert({ email, sku, provider: "stripe", amount, currency, status: "paid", raw: data });
+      .insert({ email, sku, provider: "stripe", amount, currency, status: "paid", raw: payload });
 
     const products = sku === "combo" ? ["agenda", "retos"] : [sku];
     for (const product of products) {

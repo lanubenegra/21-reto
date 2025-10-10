@@ -5,17 +5,24 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type Product = "agenda" | "retos";
 
+type EntitlementRow = {
+  id: number;
+  email: string;
+  product: Product;
+  active: boolean;
+};
+
 export default function EntitlementsAdmin() {
   const [email, setEmail] = useState("");
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<EntitlementRow[]>([]);
   const [product, setProduct] = useState<Product>("retos");
 
   async function search() {
     const { data } = await supabaseBrowser
       .from("entitlements")
-      .select("*")
+      .select("id,email,product,active")
       .ilike("email", `%${email}%`);
-    setList(data || []);
+    setList((data as EntitlementRow[] | null) ?? []);
   }
 
   async function give() {
@@ -24,7 +31,7 @@ export default function EntitlementsAdmin() {
     else search();
   }
 
-  async function toggle(entry: any) {
+  async function toggle(entry: EntitlementRow) {
     const { error } = await supabaseBrowser.from("entitlements").update({ active: !entry.active }).eq("id", entry.id);
     if (error) alert(error.message);
     else search();
@@ -38,9 +45,9 @@ export default function EntitlementsAdmin() {
           className="border p-2 flex-1"
           placeholder="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
         />
-        <select className="border p-2" value={product} onChange={(e) => setProduct(e.target.value as Product)}>
+        <select className="border p-2" value={product} onChange={(event) => setProduct(event.target.value as Product)}>
           <option value="agenda">agenda</option>
           <option value="retos">retos</option>
         </select>
