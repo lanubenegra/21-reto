@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+type StripePayload = Stripe.Checkout.Session | Stripe.PaymentIntent;
+
+const isCheckoutSession = (value: StripePayload): value is Stripe.Checkout.Session =>
+  value.object === "checkout.session";
+
+const isPaymentIntent = (value: StripePayload): value is Stripe.PaymentIntent =>
+  value.object === "payment_intent";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
 
 export async function POST(req: Request) {
@@ -17,26 +25,19 @@ export async function POST(req: Request) {
   }
 
   if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-    const payload = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
+    const payload = event.data.object as StripePayload;
 
     let email: string | null = null;
-    if ("customer_details" in payload && payload.customer_details?.email) {
-      email = payload.customer_details.email;
-    } else if ("customer_email" in payload && payload.customer_email) {
-      email = payload.customer_email;
-    } else if ("charges" in payload && payload.charges?.data?.length) {
-      email = payload.charges.data[0]?.billing_details?.email ?? null;
+    if (isCheckoutSession(payload)) {
+      email = payload.customer_details?.email ?? payload.customer_email ?? null;
+    } else if (isPaymentIntent(payload)) {
+      email = payload.receipt_email ?? payload.charges?.data?.[0]?.billing_details?.email ?? null;
     }
 
-    const sku =
-      ("metadata" in payload && payload.metadata?.sku ? String(payload.metadata.sku) : null) ??
-      "retos";
-    const amountRaw =
-      "amount_total" in payload
-        ? payload.amount_total
-        : "amount_received" in payload
-          ? payload.amount_received
-          : null;
+    const metadataSku = payload.metadata?.sku;
+    const sku = typeof metadataSku === "string" && metadataSku.length > 0 ? metadataSku : "retos";
+
+    const amountRaw = isCheckoutSession(payload) ? payload.amount_total : payload.amount_received;
     const amount = typeof amountRaw === "number" ? amountRaw / 100 : null;
     const currency = payload.currency ? payload.currency.toUpperCase() : null;
 
