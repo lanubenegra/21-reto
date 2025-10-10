@@ -2,56 +2,79 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-type StripePayload = Stripe.Checkout.Session | Stripe.PaymentIntent;
-
-const isCheckoutSession = (value: StripePayload): value is Stripe.Checkout.Session =>
-  value.object === "checkout.session";
-
-const isPaymentIntent = (value: StripePayload): value is Stripe.PaymentIntent =>
-  value.object === "payment_intent";
+export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
 
+function extractEmail(event: Stripe.Event): string | null {
+  if (event.type.startsWith("checkout.session.")) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    return session.customer_details?.email ?? session.customer_email ?? null;
+  }
+  if (event.type.startsWith("payment_intent.")) {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    let email = intent.receipt_email ?? null;
+    const latestCharge = intent.latest_charge;
+    if (latestCharge && typeof latestCharge !== "string") {
+      email = latestCharge.billing_details?.email ?? email;
+    }
+    const intentWithCharges = intent as unknown as {
+      charges?: { data?: Array<{ billing_details?: { email?: string } }> };
+    };
+    if (!email && intentWithCharges.charges?.data?.length) {
+      email = intentWithCharges.charges.data[0]?.billing_details?.email ?? null;
+    }
+    return email;
+  }
+  return null;
+}
+
+function extractSku(event: Stripe.Event): "agenda" | "retos" | "combo" {
+  const obj = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
+  const metadataSku = obj?.metadata?.sku;
+  if (metadataSku === "agenda" || metadataSku === "retos" || metadataSku === "combo") {
+    return metadataSku;
+  }
+  const description = (obj as { description?: string }).description ?? "";
+  if (/combo/i.test(description)) return "combo";
+  if (/agenda/i.test(description)) return "agenda";
+  return "retos";
+}
+
 export async function POST(req: Request) {
-  const raw = Buffer.from(await req.arrayBuffer());
-  const sig = (req.headers as Headers).get("stripe-signature");
+  const buffer = Buffer.from(await req.arrayBuffer());
+  const signature = (req.headers as Headers).get("stripe-signature");
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(raw, sig!, process.env.STRIPE_WEBHOOK_SECRET!);
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Webhook signature verification failed.";
-    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
+    event = stripe.webhooks.constructEvent(buffer, signature!, process.env.STRIPE_WEBHOOK_SECRET!);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new NextResponse(`Webhook signature verification failed: ${message}`, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
-    const payload = event.data.object as StripePayload;
-
-    let email: string | null = null;
-    if (isCheckoutSession(payload)) {
-      email = payload.customer_details?.email ?? payload.customer_email ?? null;
-    } else if (isPaymentIntent(payload)) {
-      const latestCharge = payload.latest_charge;
-      let chargeEmail: string | null = null;
-      if (latestCharge && typeof latestCharge !== "string") {
-        chargeEmail = latestCharge.billing_details?.email ?? null;
-      } else if (payload.charges?.data?.length) {
-        chargeEmail = payload.charges.data[0]?.billing_details?.email ?? null;
-      }
-      email = payload.receipt_email ?? chargeEmail;
-    }
-
-    const metadataSku = payload.metadata?.sku;
-    const sku = typeof metadataSku === "string" && metadataSku.length > 0 ? metadataSku : "retos";
-
-    const amountRaw = isCheckoutSession(payload) ? payload.amount_total : payload.amount_received;
-    const amount = typeof amountRaw === "number" ? amountRaw / 100 : null;
-    const currency = payload.currency ? payload.currency.toUpperCase() : null;
+  if (event.type.startsWith("checkout.session.") || event.type.startsWith("payment_intent.")) {
+    const email = extractEmail(event);
+    const sku = extractSku(event);
+    const rawObject = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
+    const amountCents =
+      typeof (rawObject as Stripe.Checkout.Session).amount_total === "number"
+        ? (rawObject as Stripe.Checkout.Session).amount_total
+        : typeof (rawObject as Stripe.PaymentIntent).amount === "number"
+          ? (rawObject as Stripe.PaymentIntent).amount
+          : null;
+    const currency = rawObject.currency ? String(rawObject.currency).toUpperCase() : null;
 
     const db = supabaseAdmin();
-    await db
-      .from("orders")
-      .insert({ email, sku, provider: "stripe", amount, currency, status: "paid", raw: payload });
+    await db.from("orders").insert({
+      email,
+      sku,
+      provider: "stripe",
+      amount: amountCents ? amountCents / 100 : null,
+      currency,
+      status: "paid",
+      raw: rawObject,
+    });
 
     const products = sku === "combo" ? ["agenda", "retos"] : [sku];
     for (const product of products) {
