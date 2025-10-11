@@ -16,7 +16,7 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-  const supabase = supabaseServer()
+  const supabase = await supabaseServer()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -31,4 +31,3 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
-

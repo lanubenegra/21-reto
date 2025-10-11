@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 
 export async function GET() {
-  const supabase = supabaseServer()
+  const supabase = await supabaseServer()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -17,4 +17,3 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ products: (data ?? []).map(entry => entry.product) })
 }
-

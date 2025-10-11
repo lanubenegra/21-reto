@@ -4,13 +4,14 @@ import { supabaseServer } from '@/lib/supabase/server'
 
 const schema = z.object({ payload: z.any().optional(), note: z.string().max(5000).optional() })
 
-export async function POST(req: Request, { params }: { params: { day: string } }) {
-  const day = Number(params.day)
+export async function POST(req: Request, context: { params: Promise<{ day: string }> }) {
+  const { day: dayParam } = await context.params
+  const day = Number(dayParam)
   if (Number.isNaN(day) || day < 1 || day > 21) {
     return NextResponse.json({ error: 'bad day' }, { status: 400 })
   }
 
-  const supabase = supabaseServer()
+  const supabase = await supabaseServer()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -31,4 +32,3 @@ export async function POST(req: Request, { params }: { params: { day: string } }
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
-
