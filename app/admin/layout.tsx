@@ -1,8 +1,8 @@
-import { createSupabaseServer } from "@/lib/supabaseServer";
+import { supabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServer();
+  const supabase = supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

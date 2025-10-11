@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,8 +66,7 @@ export async function POST(req: Request) {
           : null;
     const currency = rawObject.currency ? String(rawObject.currency).toUpperCase() : null;
 
-    const db = supabaseAdmin();
-    await db.from("orders").insert({
+    await supabaseAdmin.from("orders").insert({
       email,
       sku,
       provider: "stripe",
@@ -78,12 +77,12 @@ export async function POST(req: Request) {
     });
 
     const products = sku === "combo" ? ["agenda", "retos"] : [sku];
-    for (const product of products) {
-      await db.from("entitlements").upsert(
-        { user_id: null, email, product, active: true },
-        { onConflict: "user_id,product" }
+    await supabaseAdmin
+      .from("entitlements")
+      .upsert(
+        products.map((product) => ({ email, product, active: true })),
+        { onConflict: "email,product" }
       );
-    }
   }
 
   return NextResponse.json({ ok: true });

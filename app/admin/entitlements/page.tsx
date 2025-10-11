@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Product = "agenda" | "retos";
 
@@ -12,13 +12,15 @@ type EntitlementRow = {
   active: boolean;
 };
 
+const supabase = supabaseBrowser();
+
 export default function EntitlementsAdmin() {
   const [email, setEmail] = useState("");
   const [list, setList] = useState<EntitlementRow[]>([]);
   const [product, setProduct] = useState<Product>("retos");
 
   async function search() {
-    const { data } = await supabaseBrowser
+    const { data } = await supabase
       .from("entitlements")
       .select("id,email,product,active")
       .ilike("email", `%${email}%`);
@@ -26,13 +28,13 @@ export default function EntitlementsAdmin() {
   }
 
   async function give() {
-    const { error } = await supabaseBrowser.from("entitlements").upsert({ email, product, active: true });
+    const { error } = await supabase.from("entitlements").upsert({ email, product, active: true });
     if (error) alert(error.message);
     else search();
   }
 
   async function toggle(entry: EntitlementRow) {
-    const { error } = await supabaseBrowser.from("entitlements").update({ active: !entry.active }).eq("id", entry.id);
+    const { error } = await supabase.from("entitlements").update({ active: !entry.active }).eq("id", entry.id);
     if (error) alert(error.message);
     else search();
   }

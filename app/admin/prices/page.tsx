@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { useCallback, useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Price = {
   id: number;
@@ -13,6 +13,8 @@ type Price = {
   external_id: string | null;
   active: boolean;
 };
+
+const supabase = supabaseBrowser();
 
 const defaultForm: Partial<Price> = {
   product: "retos",
@@ -27,17 +29,17 @@ export default function PricesAdmin() {
   const [rows, setRows] = useState<Price[]>([]);
   const [form, setForm] = useState<Partial<Price>>(defaultForm);
 
-  async function load() {
-    const { data } = await supabaseBrowser.from("prices").select("*").order("product");
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("prices").select("*").order("product");
     setRows(data || []);
-  }
-
-  useEffect(() => {
-    load();
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   async function save() {
-    const { error } = await supabaseBrowser.from("prices").upsert(form);
+    const { error } = await supabase.from("prices").upsert(form);
     if (error) alert(error.message);
     else {
       setForm(defaultForm);
@@ -47,7 +49,7 @@ export default function PricesAdmin() {
 
   async function remove(id: number) {
     if (!confirm("Eliminar precio?")) return;
-    const { error } = await supabaseBrowser.from("prices").delete().eq("id", id);
+    const { error } = await supabase.from("prices").delete().eq("id", id);
     if (error) alert(error.message);
     else await load();
   }

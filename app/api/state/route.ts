@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServer } from "@/lib/supabaseServer";
+import { supabaseServer } from "@/lib/supabase/server";
 
 const MAX_BODY = 100_000;
 
@@ -33,7 +33,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 export async function GET() {
-  const supabase = await createSupabaseServer();
+  const supabase = supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -106,7 +106,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ message: "Acción no soportada" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServer();
+  const supabase = supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();

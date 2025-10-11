@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,15 +21,14 @@ export async function POST(req: Request) {
   const ref = evt?.data?.transaction?.reference ?? "";
   const sku = /combo/i.test(ref) ? "combo" : /agenda/i.test(ref) ? "agenda" : "retos";
 
-  const db = supabaseAdmin();
-  await db.from("orders").insert({ email, sku, provider: "wompi", status: "paid", raw: evt });
+  await supabaseAdmin.from("orders").insert({ email, sku, provider: "wompi", status: "paid", raw: evt });
 
   const products = sku === "combo" ? ["agenda", "retos"] : [sku];
-  for (const product of products) {
-    await db.from("entitlements").upsert(
-      { user_id: null, email, product, active: true },
-      { onConflict: "user_id,product" }
+  await supabaseAdmin
+    .from("entitlements")
+    .upsert(
+      products.map((product) => ({ email, product, active: true })),
+      { onConflict: "email,product" }
     );
-  }
   return NextResponse.json({ ok: true });
 }

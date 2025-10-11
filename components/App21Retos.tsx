@@ -1108,6 +1108,15 @@ function useLocalState<T>(key: string, initial: T) {
   return [value, setValue] as const;
 }
 
+function ClientOnly({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) {
+    return fallback ? <>{fallback}</> : null;
+  }
+  return <>{children}</>;
+}
+
 // =====================
 // Componente principal
 // =====================
@@ -1371,7 +1380,9 @@ const areaScores = useMemo(() => {
         <Tabs value={tab} onValueChange={value => setTab(value as TabKey)}>
           <div className="mb-4 sm:hidden">
             <Select value={tab} onValueChange={value => setTab(value as TabKey)}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Selecciona sección" /></SelectTrigger>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona sección" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="home">Inicio</SelectItem>
                 <SelectItem value="today">Hoy</SelectItem>
@@ -1384,13 +1395,13 @@ const areaScores = useMemo(() => {
             </Select>
           </div>
           <TabsList className="hidden w-full grid-cols-2 gap-2 rounded-2xl border border-mana-primary/10 bg-white/80 p-1 shadow-sm sm:grid sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7">
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="home"><Home className="h-4 w-4"/><span>Inicio</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="today"><Play className="h-4 w-4"/><span>Hoy</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="retos"><BookOpen className="h-4 w-4"/><span>Retos</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="plan"><ClipboardList className="h-4 w-4"/><span>Plan personal</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="budget"><BarChart2 className="h-4 w-4"/><span>Presupuesto</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="journal"><NotebookPen className="h-4 w-4"/><span>Diario</span></TabsTrigger>
-            <TabsTrigger className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="commit"><Signature className="h-4 w-4"/><span>Compromiso</span></TabsTrigger>
+            <TabsTrigger aria-label="Inicio" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="home"><Home className="h-4 w-4"/><span className="hidden sm:inline">Inicio</span></TabsTrigger>
+            <TabsTrigger aria-label="Hoy" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="today"><Play className="h-4 w-4"/><span className="hidden sm:inline">Hoy</span></TabsTrigger>
+            <TabsTrigger aria-label="Retos" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="retos"><BookOpen className="h-4 w-4"/><span className="hidden sm:inline">Retos</span></TabsTrigger>
+            <TabsTrigger aria-label="Plan personal" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="plan"><ClipboardList className="h-4 w-4"/><span className="hidden sm:inline">Plan personal</span></TabsTrigger>
+            <TabsTrigger aria-label="Presupuesto" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="budget"><BarChart2 className="h-4 w-4"/><span className="hidden sm:inline">Presupuesto</span></TabsTrigger>
+            <TabsTrigger aria-label="Diario" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="journal"><NotebookPen className="h-4 w-4"/><span className="hidden sm:inline">Diario</span></TabsTrigger>
+            <TabsTrigger aria-label="Compromiso" className="data-[state=active]:bg-mana-primary data-[state=active]:text-white data-[state=active]:shadow-mana text-mana-ink/70" value="commit"><Signature className="h-4 w-4"/><span className="hidden sm:inline">Compromiso</span></TabsTrigger>
           </TabsList>
 
           {/* ================= Inicio ================= */}
@@ -1434,11 +1445,15 @@ const areaScores = useMemo(() => {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-lg border border-mana-primary/10 bg-white/70 p-2 text-center">
                         <span className="text-[11px] uppercase tracking-[0.3em] text-mana-muted">Retos completados</span>
-                        <p className="font-display text-xl text-mana-primary">{completedDays.length}/21</p>
+                        <ClientOnly fallback={<p className="font-display text-xl text-mana-primary">--</p>}>
+                          <p className="font-display text-xl text-mana-primary">{completedDays.length}/21</p>
+                        </ClientOnly>
                       </div>
                       <div className="rounded-lg border border-mana-primary/10 bg-white/70 p-2 text-center">
                         <span className="text-[11px] uppercase tracking-[0.3em] text-mana-muted">Racha activa</span>
-                        <p className="font-display text-xl text-mana-primary">{streak} días</p>
+                        <ClientOnly fallback={<p className="font-display text-xl text-mana-primary">--</p>}>
+                          <p className="font-display text-xl text-mana-primary">{streak} días</p>
+                        </ClientOnly>
                       </div>
                     </div>
                   </div>
@@ -1467,20 +1482,34 @@ const areaScores = useMemo(() => {
                   <p className="text-xs uppercase tracking-[0.3em] text-mana-muted">Avance acumulado</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="mx-auto flex h-48 w-48 flex-col items-center justify-center">
-                    <div
-                      className="relative flex h-48 w-48 items-center justify-center rounded-full bg-mana-primary/5"
-                      style={{
-                        background: `conic-gradient(#28A6BD ${Math.min(100, Math.max(0, progressPct)) * 3.6}deg, rgba(40,166,189,0.15) 0deg)`,
-                      }}
-                    >
-                      <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full bg-white">
-                        <span className="font-display text-4xl font-semibold text-mana-primary">{progressPct}%</span>
-                        <span className="text-xs uppercase tracking-[0.3em] text-mana-muted">Avance</span>
+                  <ClientOnly
+                    fallback={
+                      <div className="mx-auto flex h-48 w-48 flex-col items-center justify-center">
+                        <div className="relative flex h-48 w-48 items-center justify-center rounded-full bg-mana-primary/5">
+                          <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full bg-white">
+                            <span className="font-display text-4xl font-semibold text-mana-primary">--</span>
+                            <span className="text-xs uppercase tracking-[0.3em] text-mana-muted">Avance</span>
+                          </div>
+                        </div>
+                        <p className="mt-4 text-center text-sm text-mana-ink/70">Cargando tu progreso…</p>
                       </div>
+                    }
+                  >
+                    <div className="mx-auto flex h-48 w-48 flex-col items-center justify-center">
+                      <div
+                        className="relative flex h-48 w-48 items-center justify-center rounded-full bg-mana-primary/5"
+                        style={{
+                          background: `conic-gradient(#0EA5A3 ${Math.min(100, Math.max(0, progressPct)) * 3.6}deg, rgba(14,165,163,0.15) 0deg)`,
+                        }}
+                      >
+                        <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full bg-white">
+                          <span className="font-display text-4xl font-semibold text-mana-primary">{progressPct}%</span>
+                          <span className="text-xs uppercase tracking-[0.3em] text-mana-muted">Avance</span>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-center text-sm text-mana-ink/70">Has completado {completedDays.length} de 21 retos.</p>
                     </div>
-                    <p className="mt-4 text-center text-sm text-mana-ink/70">Has completado {completedDays.length} de 21 retos.</p>
-                  </div>
+                  </ClientOnly>
                 </CardContent>
               </Card>
 
@@ -1615,11 +1644,18 @@ const areaScores = useMemo(() => {
                   <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart data={AREAS.map(area => ({ subject: area.name, Antes: initialAssess[area.key], Despues: finalAssess[area.key] }))}>
-                        <PolarGrid stroke="#D2D9ED" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: "#1B2440", fontSize: 12 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fill: "#94A3C6", fontSize: 10 }} tickCount={6} />
+                        <PolarGrid stroke="#D2D9ED" radialLines={false} />
+                        <PolarAngleAxis dataKey="subject" tick={{ fill: "#1B2440", fontSize: 11 }} tickLine={false} />
+                        <PolarRadiusAxis
+                          angle={30}
+                          domain={[0, 10]}
+                          tick={{ fill: "#94A3C6", fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickCount={6}
+                        />
                         <Radar name="Antes" dataKey="Antes" stroke="#9DB2FF" fill="#9DB2FF" fillOpacity={0.25} />
-                        <Radar name="Después" dataKey="Despues" stroke="#293C74" fill="#293C74" fillOpacity={0.35} />
+                        <Radar name="Después" dataKey="Despues" stroke="#1E3A8A" fill="#1E3A8A" fillOpacity={0.35} />
                         <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 16 }} />
                       </RadarChart>
                     </ResponsiveContainer>
@@ -2509,8 +2545,8 @@ function Interaction({ type, payload, setPayload }: InteractionProps) {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Line type="monotone" dataKey="sleep" stroke="#293C74" />
-                <Line type="monotone" dataKey="exercise" stroke="#28A6BD" />
+                <Line type="monotone" dataKey="sleep" stroke="#1E3A8A" />
+                <Line type="monotone" dataKey="exercise" stroke="#0EA5A3" />
                 <Line type="monotone" dataKey="mood" stroke="#F2C35D" />
               </LineChart>
             </ResponsiveContainer>
@@ -3882,23 +3918,25 @@ function CommitmentSection({ signature, setSignature, setTab, setFinalAssess, ar
                   Progreso: areaScores[area.key],
                 }))}
               >
-                <PolarGrid stroke="#D2D9ED" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: "#1B2440", fontSize: 12 }} />
+                <PolarGrid stroke="#D2D9ED" radialLines={false} />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: "#1B2440", fontSize: 11 }} tickLine={false} />
                 <PolarRadiusAxis
                   angle={30}
                   domain={[0, 10]}
                   tick={{ fill: "#94A3C6", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
                   tickCount={6}
                 />
                 <Radar
                   name="Progreso"
                   dataKey="Progreso"
-                  stroke="#293C74"
+                  stroke="#1E3A8A"
                   strokeWidth={2}
-                  fill="#293C74"
+                  fill="#1E3A8A"
                   fillOpacity={0.35}
                   dot
-                  activeDot={{ r: 6, fill: "#28A6BD", stroke: "#fff", strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: "#0EA5A3", stroke: "#fff", strokeWidth: 2 }}
                 />
                 <Tooltip
                   formatter={(value: number) => [`${value}/10`, "Progreso"]}

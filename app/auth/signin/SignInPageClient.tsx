@@ -318,7 +318,7 @@ export default function SignInPageClient() {
                     </button>
                   </span>
                 </div>
-                <Button type="submit" className="w-full rounded-[18px] bg-[#293C74] text-white hover:bg-[#3a4ca2]" disabled={pending}>
+                <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                   {pending ? "Ingresando..." : "Iniciar sesión"}
                 </Button>
               </form>
@@ -380,7 +380,7 @@ export default function SignInPageClient() {
                     </button>
                   </span>
                 </div>
-                <Button type="submit" className="w-full rounded-[18px] bg-[#293C74] text-white hover:bg-[#3a4ca2]" disabled={pending}>
+                <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                   {pending ? "Creando..." : "Crear cuenta"}
                 </Button>
               </form>
@@ -408,7 +408,7 @@ export default function SignInPageClient() {
                     placeholder="tu@email.com"
                   />
                 </div>
-                <Button type="submit" className="w-full rounded-[18px] bg-[#293C74] text-white hover:bg-[#3a4ca2]" disabled={pending}>
+                <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                   {pending ? "Enviando..." : "Enviar instrucciones"}
                 </Button>
               </form>
@@ -437,7 +437,7 @@ export default function SignInPageClient() {
                       placeholder="Mínimo 8 caracteres"
                     />
                   </div>
-                  <Button type="submit" className="w-full rounded-[18px] bg-[#293C74] text-white hover:bg-[#3a4ca2]" disabled={pending}>
+                  <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                     {pending ? "Actualizando..." : "Actualizar contraseña"}
                   </Button>
                 </form>

@@ -1,7 +1,7 @@
-import { createSupabaseServer } from "@/lib/supabaseServer";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export default async function OrdersAdmin() {
-  const supabase = await createSupabaseServer();
+  const supabase = supabaseServer();
   const { data } = await supabase
     .from("orders")
     .select("created_at,email,sku,provider,amount,currency,status")

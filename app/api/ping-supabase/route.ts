@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 function headersFor(kind: "anon" | "service") {
   const key =
     kind === "service"
-      ? process.env.SUPABASE_SERVICE_ROLE!
+      ? process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE!
       : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return { apikey: key, Authorization: `Bearer ${key}` };
 }

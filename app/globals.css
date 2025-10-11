@@ -6,9 +6,9 @@
 @layer base {
   :root {
     /* Colores brand (HEX por si quieres usarlos directo) */
-    --mana-primary-hex: #293C74;
-    --mana-secondary-hex: #28A6BD;
-    --mana-accent-hex: #F2C35D;
+    --mana-primary-hex: #1E3A8A;
+    --mana-secondary-hex: #0EA5A3;
+    --mana-accent-hex: #6366F1;
 
     /* Tokens en HSL que usa shadcn/ui internamente */
     --background: 215 44% 96%;
@@ -20,13 +20,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 226 44% 18%;
 
-    --primary: 225 48% 31%; /* #293C74 */
+    --primary: 224 64% 33%; /* #1E3A8A */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 189 65% 45%; /* #28A6BD */
+    --secondary: 179 84% 35%; /* #0EA5A3 */
     --secondary-foreground: 210 40% 98%;
 
-    --accent: 43 87% 66%; /* #F2C35D */
+    --accent: 239 84% 67%; /* #6366F1 */
     --accent-foreground: 226 44% 18%;
 
     --muted: 219 35% 92%;
@@ -37,7 +37,7 @@
 
     --border: 217 33% 90%;
     --input: 217 33% 90%;
-    --ring: 225 48% 31%;
+    --ring: 224 64% 40%;
 
     --radius: 14px;
   }
@@ -52,13 +52,13 @@
     --popover: 228 52% 10%;
     --popover-foreground: 210 40% 96%;
 
-    --primary: 225 48% 51%;
+    --primary: 224 64% 55%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 189 65% 55%;
+    --secondary: 179 72% 45%;
     --secondary-foreground: 228 52% 8%;
 
-    --accent: 43 87% 66%;
+    --accent: 239 84% 67%;
     --accent-foreground: 228 52% 8%;
 
     --muted: 225 25% 24%;
@@ -69,7 +69,7 @@
 
     --border: 225 25% 24%;
     --input: 225 25% 24%;
-    --ring: 225 48% 51%;
+    --ring: 224 64% 55%;
   }
 }
 
@@ -107,7 +107,7 @@
     text-transform: uppercase;
     letter-spacing: 0.3em;
     font-size: 0.7rem;
-    color: rgba(40, 166, 189, 0.85);
+    color: rgba(14, 165, 163, 0.85);
   }
 
   .challenge-section-title {
@@ -118,13 +118,13 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     font-weight: 600;
-    color: rgba(41, 60, 116, 0.9);
+    color: rgba(30, 58, 138, 0.9);
   }
 
   .challenge-section-content {
     font-size: 0.95rem;
     line-height: 1.6;
-    color: rgba(27, 36, 64, 0.82);
+    color: rgba(18, 26, 58, 0.82);
   }
 
   .challenge-list {
@@ -138,7 +138,7 @@
     padding-left: 1.25rem;
     font-size: 0.95rem;
     line-height: 1.6;
-    color: rgba(27, 36, 64, 0.82);
+    color: rgba(18, 26, 58, 0.82);
   }
 
   .challenge-list-item::before {
@@ -156,6 +156,6 @@
     font-size: 1.05rem;
     font-style: italic;
     text-align: center;
-    color: rgba(41, 60, 116, 0.95);
+    color: rgba(30, 58, 138, 0.95);
   }
 }

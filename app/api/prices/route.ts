@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type Sku = "agenda" | "retos" | "combo";
 
@@ -13,9 +13,8 @@ export async function GET(req: Request) {
   if (!sku) return NextResponse.json({ message: "sku requerido" }, { status: 400 });
 
   const provider = country === "CO" ? "wompi" : "stripe";
-  const db = supabaseAdmin();
 
-  const { data: row } = await db
+  const { data: row } = await supabaseAdmin
     .from("prices")
     .select("*")
     .eq("product", sku)
@@ -24,7 +23,7 @@ export async function GET(req: Request) {
     .eq("active", true)
     .maybeSingle();
 
-  const fallback = await db
+  const fallback = await supabaseAdmin
     .from("prices")
     .select("*")
     .eq("product", sku)
