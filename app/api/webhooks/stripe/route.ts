@@ -71,21 +71,21 @@ export async function POST(req: Request) {
         raw: session as Stripe.Checkout.Session,
       });
 
-      const upserts = [] as Promise<unknown>[];
+      const upserts: Promise<unknown>[] = [];
       if (sku === "retos" || sku === "combo") {
         upserts.push(
-          supabase.from("entitlements").upsert(
-            { email, product: "retos", active: true },
-            { onConflict: "email,product" }
-          )
+          supabase
+            .from("entitlements")
+            .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" })
+            .select()
         );
       }
       if (sku === "agenda" || sku === "combo") {
         upserts.push(
-          supabase.from("entitlements").upsert(
-            { email, product: "agenda", active: true },
-            { onConflict: "email,product" }
-          )
+          supabase
+            .from("entitlements")
+            .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" })
+            .select()
         );
         upserts.push(grantAgenda(email));
       }
