@@ -71,15 +71,26 @@ export async function POST(req: Request) {
         raw: session as Stripe.Checkout.Session,
       });
 
+      const upserts = [] as Promise<unknown>[];
       if (sku === "retos" || sku === "combo") {
-        await supabase.from("entitlements").upsert(
-          { email, product: "retos", active: true },
-          { onConflict: "email,product" }
+        upserts.push(
+          supabase.from("entitlements").upsert(
+            { email, product: "retos", active: true },
+            { onConflict: "email,product" }
+          )
         );
       }
       if (sku === "agenda" || sku === "combo") {
-        await grantAgenda(email);
+        upserts.push(
+          supabase.from("entitlements").upsert(
+            { email, product: "agenda", active: true },
+            { onConflict: "email,product" }
+          )
+        );
+        upserts.push(grantAgenda(email));
       }
+
+      await Promise.all(upserts);
 
       console.log("[stripe webhook] checkout.session.completed", { email, sku });
     }
