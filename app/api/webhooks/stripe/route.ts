@@ -1,93 +1,101 @@
-import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
+import Stripe from "stripe";
+import { NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
+import { createClient } from "@supabase/supabase-js";
 
-function extractEmail(event: Stripe.Event): string | null {
-  if (event.type.startsWith("checkout.session.")) {
-    const session = event.data.object as Stripe.Checkout.Session;
-    return session.customer_details?.email ?? session.customer_email ?? null;
-  }
-  if (event.type.startsWith("payment_intent.")) {
-    const intent = event.data.object as Stripe.PaymentIntent;
-    let email = intent.receipt_email ?? null;
-    const latestCharge = intent.latest_charge;
-    if (latestCharge && typeof latestCharge !== "string") {
-      email = latestCharge.billing_details?.email ?? email;
-    }
-    const intentWithCharges = intent as unknown as {
-      charges?: { data?: Array<{ billing_details?: { email?: string } }> };
-    };
-    if (!email && intentWithCharges.charges?.data?.length) {
-      email = intentWithCharges.charges.data[0]?.billing_details?.email ?? null;
-    }
-    return email;
-  }
-  return null;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2024-06-20",
+});
+
+const serviceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE;
+
+if (!serviceKey) {
+  throw new Error("Missing SUPABASE service role key for Stripe webhook");
 }
 
-function extractSku(event: Stripe.Event): "agenda" | "retos" | "combo" {
-  const obj = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
-  const metadataSku = obj?.metadata?.sku;
-  if (metadataSku === "agenda" || metadataSku === "retos" || metadataSku === "combo") {
-    return metadataSku;
-  }
-  const description = (obj as { description?: string }).description ?? "";
-  if (/combo/i.test(description)) return "combo";
-  if (/agenda/i.test(description)) return "agenda";
-  return "retos";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  serviceKey,
+  { auth: { persistSession: false } }
+);
+
+const SHARED_SECRET = process.env.SHARED_SECRET!;
+const AGENDA_GRANT_URL = process.env.AGENDA_GRANT_URL || "";
+
+async function grantAgenda(email: string) {
+  if (!AGENDA_GRANT_URL) return;
+  const token = jwt.sign({ email, product: "agenda" }, SHARED_SECRET, {
+    expiresIn: "5m",
+    issuer: "retos",
+    audience: "grant",
+  });
+  await fetch(AGENDA_GRANT_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export async function POST(req: Request) {
-  const buffer = Buffer.from(await req.arrayBuffer());
-  const signature = (req.headers as Headers).get("stripe-signature");
-
-  let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(buffer, signature!, process.env.STRIPE_WEBHOOK_SECRET!);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new NextResponse(`Webhook signature verification failed: ${message}`, { status: 400 });
+    const signature = req.headers.get("stripe-signature") as string;
+    const buffer = Buffer.from(await req.arrayBuffer());
+
+    const event = stripe.webhooks.constructEvent(
+      buffer,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET as string
+    );
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      const email =
+        session.customer_details?.email ||
+        session.customer_email ||
+        (session.customer as string) ||
+        "";
+
+      const sku = (session.metadata?.sku as "retos" | "agenda" | "combo") || "retos";
+
+      await supabase.from("orders").insert({
+        user_id: null,
+        email,
+        sku,
+        provider: "stripe",
+        amount: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        status: "paid",
+        raw: session as Stripe.Checkout.Session,
+      });
+
+      if (sku === "retos" || sku === "combo") {
+        await supabase.from("entitlements").upsert(
+          { email, product: "retos", active: true },
+          { onConflict: "email,product" }
+        );
+      }
+      if (sku === "agenda" || sku === "combo") {
+        await grantAgenda(email);
+      }
+
+      console.log("[stripe webhook] checkout.session.completed", { email, sku });
+    }
+
+    if (event.type === "payment_intent.succeeded") {
+      console.log("[stripe webhook] payment_intent.succeeded");
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[stripe webhook] error", message);
+    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
   }
-
-  if (event.type.startsWith("checkout.session.") || event.type.startsWith("payment_intent.")) {
-    const email = extractEmail(event);
-    const sku = extractSku(event);
-    const rawObject = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
-    const amountCents =
-      typeof (rawObject as Stripe.Checkout.Session).amount_total === "number"
-        ? (rawObject as Stripe.Checkout.Session).amount_total
-        : typeof (rawObject as Stripe.PaymentIntent).amount === "number"
-          ? (rawObject as Stripe.PaymentIntent).amount
-          : null;
-    const currency = rawObject.currency ? String(rawObject.currency).toUpperCase() : null;
-
-    await supabaseAdmin.from("orders").insert({
-      email,
-      sku,
-      provider: "stripe",
-      amount: amountCents ? amountCents / 100 : null,
-      currency,
-      status: "paid",
-      raw: rawObject,
-    });
-
-    const products = sku === "combo" ? ["agenda", "retos"] : [sku];
-    await supabaseAdmin
-      .from("entitlements")
-      .upsert(
-        products.map((product) => ({ email, product, active: true })),
-        { onConflict: "email,product" }
-      );
-  }
-
-  return NextResponse.json({ ok: true });
 }
 
 export async function GET() {
-  return new Response("OK", { status: 200 });
+  return new Response("Stripe webhook endpoint OK", { status: 200 });
 }
