@@ -1121,8 +1121,9 @@ function ClientOnly({ children, fallback }: { children: React.ReactNode; fallbac
 // Componente principal
 // =====================
 export default function App21Retos() {
-  const { data: session } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const userEmail = session?.user?.email ?? null;
+  const [licenseStatus, setLicenseStatus] = useState<"checking" | "allowed" | "denied">("checking");
   const [tab, setTab] = useState<TabKey>("home");
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [openBibleReference, setOpenBibleReference] = useState<string | null>(null);
@@ -1148,6 +1149,36 @@ export default function App21Retos() {
   const hasAppliedRemoteRef = useRef(false);
 
   useEffect(() => {
+    if (authStatus === "loading") return;
+    if (!session?.user?.email) {
+      setLicenseStatus("denied");
+      return;
+    }
+
+    let cancelled = false;
+    setLicenseStatus("checking");
+
+    (async () => {
+      try {
+        const response = await fetch("/api/licenses", { cache: "no-store" });
+        if (!response.ok) throw new Error("license");
+        const payload = (await response.json()) as { products?: string[] };
+        if (cancelled) return;
+        const products = payload?.products ?? [];
+        setLicenseStatus(products.includes("retos") || products.includes("combo") ? "allowed" : "denied");
+      } catch {
+        if (!cancelled) {
+          setLicenseStatus("denied");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.email, authStatus]);
+
+  useEffect(() => {
     if (initialAssessSaved) {
       setIsEditingInitial(false);
     }
@@ -1158,6 +1189,9 @@ export default function App21Retos() {
       setIsEditingFinal(false);
     }
   }, [finalAssessSaved]);
+
+  const isAuthenticating = authStatus === "loading";
+  const isCheckingLicense = isAuthenticating || licenseStatus === "checking";
 
   // Progreso global y por área
   const progressPct = useMemo(() => Math.round((completedDays.length / 21) * 100), [completedDays.length]);
@@ -1187,7 +1221,7 @@ const areaScores = useMemo(() => {
   }, [planStartDate, setPlanStartDate]);
 
   useEffect(() => {
-    if (!userEmail) {
+    if (!userEmail || licenseStatus !== "allowed") {
       hasAppliedRemoteRef.current = false;
       setIsRemoteHydrated(false);
       return;
@@ -1236,6 +1270,7 @@ const areaScores = useMemo(() => {
     };
   }, [
     userEmail,
+    licenseStatus,
     setInitialAssess,
     setFinalAssess,
     setEntries,
@@ -1251,7 +1286,7 @@ const areaScores = useMemo(() => {
   ]);
 
   useEffect(() => {
-    if (!userEmail || !isRemoteHydrated || !hasAppliedRemoteRef.current) return;
+    if (!userEmail || licenseStatus !== "allowed" || !isRemoteHydrated || !hasAppliedRemoteRef.current) return;
     const payload: UserState = {
       initialAssess,
       finalAssess,
@@ -1281,7 +1316,7 @@ const areaScores = useMemo(() => {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [userEmail, isRemoteHydrated, initialAssess, finalAssess, entries, completedDays, planStartDate, personalTasks, budgetState, diary, goals, goalLogs, signature, actionDates]);
+  }, [userEmail, licenseStatus, isRemoteHydrated, initialAssess, finalAssess, entries, completedDays, planStartDate, personalTasks, budgetState, diary, goals, goalLogs, signature, actionDates]);
 
   // Streak (racha) básica: días consecutivos con acción, terminando hoy si aplica
   useEffect(() => {
@@ -1350,6 +1385,43 @@ const areaScores = useMemo(() => {
   // =====================
   // UI
   // =====================
+  if (isCheckingLicense) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-mana-gradient text-white">
+        <div className="space-y-3 text-center">
+          <span className="text-xs uppercase tracking-[0.4em] text-white/70">Validando acceso</span>
+          <h1 className="text-2xl font-semibold">Preparando tu experiencia 21 Retos…</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (licenseStatus !== "allowed") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-mana-gradient px-6 text-center text-white">
+        <div className="space-y-3">
+          <span className="text-xs uppercase tracking-[0.4em] text-white/70">Acceso restringido</span>
+          <h1 className="text-3xl font-semibold">Activa tu licencia de 21 Retos</h1>
+          <p className="mx-auto max-w-md text-sm text-white/80">
+            {session?.user
+              ? "Tu cuenta todavía no tiene una licencia activa. Finaliza la compra para desbloquear todo el programa."
+              : "Inicia sesión con tu cuenta o adquiere la licencia de 21 Retos para continuar."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Button className="px-6" onClick={() => (window.location.href = "/pago")}>
+            Ir a la tienda
+          </Button>
+          {!session?.user && (
+            <Button variant="secondary" className="px-6" onClick={() => (window.location.href = "/auth/signin")}>
+              Iniciar sesión
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-mana-surface text-mana-ink">
       <header className="sticky top-0 z-30 border-b border-mana-primary/10 bg-mana-surface/85 backdrop-blur">
