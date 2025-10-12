@@ -4,7 +4,6 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
-import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2024-06-20",
@@ -72,26 +71,17 @@ export async function POST(req: Request) {
         raw: session as Stripe.Checkout.Session,
       });
 
-      const upserts: Array<Promise<PostgrestSingleResponse<Record<string, unknown>>>> = [];
       if (sku === "retos" || sku === "combo") {
-        upserts.push(
-          supabase
-            .from("entitlements")
-            .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" })
-            .select()
-        );
+        await supabase
+          .from("entitlements")
+          .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" });
       }
       if (sku === "agenda" || sku === "combo") {
-        upserts.push(
-          supabase
-            .from("entitlements")
-            .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" })
-            .select()
-        );
-        upserts.push(grantAgenda(email));
+        await supabase
+          .from("entitlements")
+          .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" });
+        await grantAgenda(email);
       }
-
-      await Promise.all(upserts);
 
       console.log("[stripe webhook] checkout.session.completed", { email, sku });
     }
