@@ -2942,10 +2942,14 @@ function ProgressCalendar({ completedDays, planStartDate, onOpenDay, onRestartPl
                   )}
                   aria-label={`Día ${cell.dayNumber}`}
                 >
-                  <span className="relative flex items-center justify-center">
-                    {cell.dayNumber}
-                    {cell.status === "locked" && <Lock className="absolute -right-2 -top-2 h-3.5 w-3.5 text-mana-muted" />}
-                  </span>
+                  {cell.status === "locked" ? (
+                    <span className="flex items-center gap-1 text-sm font-semibold text-mana-muted">
+                      <Lock className="h-3.5 w-3.5" />
+                      {cell.dayNumber}
+                    </span>
+                  ) : (
+                    cell.dayNumber
+                  )}
                 </button>
                 <span className="text-[10px] uppercase tracking-wide text-mana-muted">{dateLabel}</span>
               </div>
