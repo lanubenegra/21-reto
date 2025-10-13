@@ -1,58 +1,182 @@
-import { Metadata } from 'next'
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'Gracias por tu compra · 21 Retos',
+type Sku = 'retos' | 'agenda' | 'combo'
+type LicensesResp = { products?: string[] }
+
+const AGENDA_URL =
+  process.env.NEXT_PUBLIC_AGENDA_APP_URL || 'https://agenda-devocional.example.com'
+
+function Pill({ children, ok }: { children: React.ReactNode; ok?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs transition ${
+        ok
+          ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/40'
+          : 'bg-white/10 text-white/70 ring-1 ring-white/20'
+      }`}
+    >
+      {ok ? '✓' : '•'} {children}
+    </span>
+  )
 }
 
-type Props = {
-  searchParams: { sku?: string | string[]; status?: string | string[] }
-}
+export default function GraciasPage() {
+  const qs = useSearchParams()
+  const sku = (qs.get('sku') ?? 'retos').toLowerCase() as Sku
+  const status = (qs.get('status') ?? 'success').toLowerCase()
 
-const PRODUCT_NAMES: Record<string, string> = {
-  retos: '21 Retos',
-  agenda: 'Agenda Devocional',
-  combo: 'Combo 21 Retos + Agenda',
-}
+  const [products, setProducts] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default function GraciasPage({ searchParams }: Props) {
-  const status = Array.isArray(searchParams.status) ? searchParams.status[0] : searchParams.status
-  const sku = Array.isArray(searchParams.sku) ? searchParams.sku[0] : searchParams.sku
-  const productName = (sku ? PRODUCT_NAMES[sku] : null) ?? 'tu compra'
+  useEffect(() => {
+    let mounted = true
 
-  const success = status === 'success'
+    const fetchLicenses = async () => {
+      try {
+        const response = await fetch('/api/licenses', { cache: 'no-store' })
+        const payload = (await response.json()) as LicensesResp
+        if (!mounted) return
+        setProducts(payload.products ?? [])
+      } catch {
+        // ignore
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    fetchLicenses()
+    const retry = setTimeout(fetchLicenses, 2500)
+
+    return () => {
+      mounted = false
+      clearTimeout(retry)
+    }
+  }, [])
+
+  const hasRetos = useMemo(() => products.includes('retos'), [products])
+  const hasAgenda = useMemo(() => products.includes('agenda'), [products])
+
+  const title = (() => {
+    if (status !== 'success') return 'Pago cancelado'
+    if (sku === 'retos') return '¡Listo! Tu acceso a 21 Retos está activo'
+    if (sku === 'agenda') return '¡Listo! Acceso a Agenda Devocional'
+    return '¡Listo! Acceso al Combo (Agenda + 21 Retos)'
+  })()
+
+  const subtitle =
+    status === 'success'
+      ? 'Si no ves acceso aún, espera unos segundos mientras sincronizamos tu compra.'
+      : 'No se realizó ningún cobro. Puedes volver a intentarlo desde la tienda.'
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-mana-gradient px-6 text-center text-white">
-      <div className="max-w-xl space-y-4">
-        <span className="text-xs uppercase tracking-[0.4em] text-white/70">
-          {success ? 'Pago confirmado' : 'Estado de tu pedido'}
-        </span>
-        <h1 className="text-3xl font-semibold">
-          {success
-            ? `¡Gracias! Ya activamos ${productName}`
-            : 'Estamos verificando tu pago'}
-        </h1>
-        <p className="text-sm text-white/80">
-          {success
-            ? 'Puedes regresar a 21 Retos y comenzar a disfrutar del contenido premium. Si no ves la licencia activa, refresca la página o contáctanos con tu correo.'
-            : 'Si cerraste el checkout antes de finalizar, vuelve a intentarlo desde la tienda. Ante cualquier duda escríbenos y te ayudamos.'}
-        </p>
-      </div>
+    <main className="min-h-[100svh] bg-gradient-to-br from-[#0b3b7a] via-[#155e75] to-[#0ea5a3] px-6 py-16 text-white">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
+        <header className="space-y-3 text-center">
+          <h1 className="text-3xl font-semibold md:text-4xl">{title}</h1>
+          <p className="text-sm opacity-90">{subtitle}</p>
+          {status === 'success' && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Pill ok={hasRetos}>Retos {hasRetos ? 'activado' : 'pendiente'}</Pill>
+              <Pill ok={hasAgenda}>Agenda {hasAgenda ? 'activado' : 'pendiente'}</Pill>
+              {loading && <Pill>verificando…</Pill>}
+            </div>
+          )}
+        </header>
 
-      <div className="flex flex-wrap items-center justify-center gap-4">
-        <Link
-          href="/"
-          className="rounded-full bg-white/10 px-6 py-2 text-sm font-medium transition hover:bg-white/20"
-        >
-          Volver a 21 Retos
-        </Link>
-        <Link
-          href="/pago"
-          className="rounded-full border border-white/30 px-6 py-2 text-sm font-medium text-white/80 transition hover:border-white hover:text-white"
-        >
-          Ir a la tienda
-        </Link>
+        {status === 'success' ? (
+          <section className="grid gap-4 md:grid-cols-2">
+            {(sku === 'retos' || sku === 'combo') && (
+              <article className="space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
+                <h2 className="text-xl font-medium">
+                  Acceso a <span className="font-semibold">21 Retos</span>
+                </h2>
+                <p className="text-sm opacity-90">
+                  Aquí encontrarás el reto diario, calendario, metas y seguimiento personalizado.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/hoy"
+                    className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                      hasRetos
+                        ? 'bg-white/90 text-slate-900 hover:bg-white'
+                        : 'pointer-events-none bg-white/20 text-white/60'
+                    }`}
+                  >
+                    Ir al reto de hoy
+                  </Link>
+                  <Link
+                    href="/retos"
+                    className="rounded-full px-5 py-2 text-sm font-medium bg-white/10 hover:bg-white/20"
+                  >
+                    Ver lista de retos
+                  </Link>
+                </div>
+                {!hasRetos && (
+                  <p className="text-xs opacity-80">
+                    Puede tardar un momento. Asegúrate de iniciar sesión con el mismo correo usado en el pago.
+                  </p>
+                )}
+              </article>
+            )}
+
+            {(sku === 'agenda' || sku === 'combo') && (
+              <article className="space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
+                <h2 className="text-xl font-medium">
+                  Acceso a <span className="font-semibold">Agenda Devocional</span>
+                </h2>
+                <p className="text-sm opacity-90">
+                  La Agenda vive en la app del ministerio. Ingresa con el mismo correo del pago para ver tu licencia.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href={AGENDA_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full px-5 py-2 text-sm font-medium bg-white/90 text-slate-900 hover:bg-white"
+                  >
+                    Abrir Agenda
+                  </a>
+                  <a
+                    href={`${AGENDA_URL}/login`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full px-5 py-2 text-sm font-medium bg-white/10 hover:bg-white/20"
+                  >
+                    Iniciar sesión / registrarme
+                  </a>
+                </div>
+                {!hasAgenda && (
+                  <p className="text-xs opacity-80">
+                    Si no aparece de inmediato, actualiza esta página en unos segundos. Usamos el mismo correo para activar tu acceso.
+                  </p>
+                )}
+              </article>
+            )}
+          </section>
+        ) : (
+          <div className="text-center">
+            <Link
+              href="/pago"
+              className="rounded-full bg-white/90 px-5 py-2 text-sm font-medium text-slate-900 hover:bg-white"
+            >
+              Volver a la tienda
+            </Link>
+          </div>
+        )}
+
+        <footer className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/80">
+          <Link href="/" className="underline underline-offset-4">Volver al inicio</Link>
+          <button
+            onClick={() => location.reload()}
+            className="underline underline-offset-4 hover:text-white"
+          >
+            Actualizar estado
+          </button>
+        </footer>
       </div>
     </main>
   )
