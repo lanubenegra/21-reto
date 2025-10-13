@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Home, BookOpen, CalendarDays, BarChart2, ClipboardList, NotebookPen, CheckCircle2, Play, Pause, ShieldCheck, Signature, Plus, Check, Trash2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Flame, Home, BookOpen, CalendarDays, BarChart2, ClipboardList, NotebookPen, CheckCircle2, Play, Pause, ShieldCheck, Signature, Plus, Check, Trash2, Search, X, ChevronLeft, ChevronRight, HeartHandshake, LogIn, Lock } from "lucide-react";
 import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import AuthMenu from "@/components/auth/AuthMenu";
 import { useSession } from "next-auth/react";
@@ -236,6 +236,7 @@ interface TodayChallengeProps {
   onCompleted: CompleteHandler;
   entries: EntriesMap;
   onOpenReference: (reference: string) => void;
+  canAccess: boolean;
 }
 
 interface InteractionProps {
@@ -1192,6 +1193,31 @@ export default function App21Retos() {
 
   const isAuthenticating = authStatus === "loading";
   const isCheckingLicense = isAuthenticating || licenseStatus === "checking";
+  const canAccessRetos = licenseStatus === "allowed";
+  const isLoggedIn = Boolean(session?.user);
+  const donationUrl = "/pago";
+
+  const headerPrimaryCta = canAccessRetos
+    ? {
+        label: "Ir al reto de hoy",
+        onClick: () => setTab("today"),
+        icon: <Play className="mr-1 h-4 w-4" />,
+      }
+    : isLoggedIn
+    ? {
+        label: "Donar 21 Retos + Agenda",
+        onClick: () => {
+          window.location.href = donationUrl;
+        },
+        icon: <HeartHandshake className="mr-1 h-4 w-4" />,
+      }
+    : {
+        label: "Crear cuenta / Iniciar sesión",
+        onClick: () => {
+          window.location.href = "/auth/signin?mode=register";
+        },
+        icon: <LogIn className="mr-1 h-4 w-4" />,
+      };
 
   // Progreso global y por área
   const progressPct = useMemo(() => Math.round((completedDays.length / 21) * 100), [completedDays.length]);
@@ -1396,32 +1422,6 @@ const areaScores = useMemo(() => {
     );
   }
 
-  if (licenseStatus !== "allowed") {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-mana-gradient px-6 text-center text-white">
-        <div className="space-y-3">
-          <span className="text-xs uppercase tracking-[0.4em] text-white/70">Acceso restringido</span>
-          <h1 className="text-3xl font-semibold">Activa tu licencia de 21 Retos</h1>
-          <p className="mx-auto max-w-md text-sm text-white/80">
-            {session?.user
-              ? "Tu cuenta todavía no tiene una licencia activa. Finaliza la compra para desbloquear todo el programa."
-              : "Inicia sesión con tu cuenta o adquiere la licencia de 21 Retos para continuar."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <Button className="px-6" onClick={() => (window.location.href = "/pago")}>
-            Ir a la tienda
-          </Button>
-          {!session?.user && (
-            <Button variant="secondary" className="px-6" onClick={() => (window.location.href = "/auth/signin")}>
-              Iniciar sesión
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-mana-surface text-mana-ink">
       <header className="sticky top-0 z-30 border-b border-mana-primary/10 bg-mana-surface/85 backdrop-blur">
@@ -1432,15 +1432,20 @@ const areaScores = useMemo(() => {
           <div className="flex min-w-[200px] flex-col">
             <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-mana-secondary">Devocional Maná</span>
             <h1 className="font-display text-xl font-semibold text-mana-primary md:text-2xl">Marketing para la Vida</h1>
-            <p className="text-xs text-mana-muted">21 retos en 7 áreas críticas de tu historia</p>
+            <p className="text-xs text-mana-muted">21 retos en 7 áreas críticas de tu vida</p>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 rounded-full bg-white/70 px-4 py-2 text-sm shadow-sm">
+            <div className="flex items-center gap-3 rounded-full bg-white/75 px-4 py-2 text-sm shadow-sm">
               <Badge className="border-none bg-mana-secondary/15 px-3 font-medium text-mana-secondary" variant="outline">
                 <Flame className="mr-1 h-4 w-4" />Racha {streak}d
               </Badge>
-              <Button size="sm" className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary" onClick={() => setTab("today")}>
-                <Play className="mr-1 h-4 w-4" /> Ir al día de hoy
+              <Button
+                size="sm"
+                className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary"
+                onClick={headerPrimaryCta.onClick}
+              >
+                {headerPrimaryCta.icon}
+                {headerPrimaryCta.label}
               </Button>
             </div>
             <AuthMenu />
@@ -1478,6 +1483,31 @@ const areaScores = useMemo(() => {
 
           {/* ================= Inicio ================= */}
           <TabsContent value="home" className="mt-6 space-y-8">
+            {!canAccessRetos && (
+              <Card className="border-none bg-mana-primary/10 shadow-sm">
+                <CardContent className="space-y-3 p-6 text-sm text-mana-ink/80">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-display text-lg text-mana-primary">Realiza tu donación para desbloquear los 21 retos</h3>
+                      <p className="text-mana-muted">
+                        Puedes disfrutar los videos introductorios. Cuando realices tu donación, se activarán todas las dinámicas, registros y seguimiento personalizado.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 md:flex-row">
+                      <Button className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary" onClick={() => (window.location.href = donationUrl)}>
+                        Donar 21 Retos + Agenda
+                      </Button>
+                      {!isLoggedIn && (
+                        <Button variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={() => (window.location.href = "/auth/signin?mode=register")}>
+                          Crear cuenta gratuita
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
               <div className="space-y-6">
                 <Card className="border-none bg-white/95 shadow-mana">
@@ -1490,12 +1520,27 @@ const areaScores = useMemo(() => {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                      <Button className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary" onClick={() => setTab("today")}>
-                        <Play className="mr-1 h-4 w-4" /> Ir al reto de hoy
-                      </Button>
-                      <Button variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={() => scrollToSection("home-calendar")}>
-                        <CalendarDays className="mr-1 h-4 w-4" /> Ver calendario
-                      </Button>
+                      {canAccessRetos ? (
+                        <>
+                          <Button className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary" onClick={() => setTab("today")}>
+                            <Play className="mr-1 h-4 w-4" /> Ir al reto de hoy
+                          </Button>
+                          <Button variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={() => scrollToSection("home-calendar")}>
+                            <CalendarDays className="mr-1 h-4 w-4" /> Ver calendario
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button className="shadow-mana bg-mana-secondary text-white hover:bg-mana-primary" onClick={() => (window.location.href = donationUrl)}>
+                            <HeartHandshake className="mr-1 h-4 w-4" /> Donar 21 Retos + Agenda
+                          </Button>
+                          {!isLoggedIn && (
+                            <Button variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={() => (window.location.href = "/auth/signin?mode=register")}>
+                              <LogIn className="mr-1 h-4 w-4" /> Crear cuenta / Iniciar sesión
+                            </Button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1749,6 +1794,7 @@ const areaScores = useMemo(() => {
               onCompleted={markCompleted}
               entries={entries}
               onOpenReference={reference => setOpenBibleReference(reference)}
+              canAccess={canAccessRetos}
             />
           </TabsContent>
 
@@ -1765,9 +1811,12 @@ const areaScores = useMemo(() => {
                     <div className="flex items-center gap-2 text-xs text-mana-muted">
                       <span>Áreas: {Object.keys(ch.areas).map(k => AREAS.find(a=>a.key===k)?.name).join(", ")}</span>
                     </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" className="shadow-sm" onClick={()=>{ setSelectedDay(ch.day); setTab("today"); }}>Ir al reto</Button>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button size="sm" className="shadow-sm" onClick={()=>{ setSelectedDay(ch.day); setTab("today"); }}>Ver reto</Button>
                       {completedDays.includes(ch.day) && <Button size="sm" variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={()=>{ setSelectedDay(ch.day); setTab("today"); }}>Ver registro</Button>}
+                      {!canAccessRetos && (
+                        <Button size="sm" variant="ghost" className="text-mana-primary" onClick={() => (window.location.href = "/pago")}>Donar para desbloquear</Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -2137,7 +2186,31 @@ function BibleModal({ reference, onClose }: { reference: string | null; onClose:
   );
 }
 
-function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onOpenReference }: TodayChallengeProps) {
+function LockedFeature({ canAccess, children, message }: { canAccess: boolean; children: React.ReactNode; message?: string }) {
+  if (canAccess) return <>{children}</>;
+  return (
+    <div className="relative">
+      <div className="pointer-events-none blur-[1px] opacity-60">{children}</div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl bg-mana-primary/85 p-6 text-center text-white">
+        <Lock className="h-6 w-6" />
+        <p className="text-sm leading-relaxed">
+          {message ?? "Para completar el reto necesitas activar tu donación a 21 Retos."}
+        </p>
+        <Button
+          variant="secondary"
+          className="bg-white text-mana-primary hover:bg-white/90"
+          onClick={() => {
+            window.location.href = "/pago";
+          }}
+        >
+          Donar 21 Retos + Agenda
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onOpenReference, canAccess }: TodayChallengeProps) {
   const ch = CHALLENGES.find(c => c.day === selectedDay) || CHALLENGES[0];
   const [note, setNote] = useState("");
   const [payload, setPayload] = useState<ChallengePayload>(() => normalizePayload(entries[selectedDay]?.payload));
@@ -2187,72 +2260,84 @@ function TodayChallenge({ selectedDay, setSelectedDay, onCompleted, entries, onO
               </p>
             </div>
 
-            {/* Interacción dinámica */}
-            <Interaction type={ch.interaction} payload={payload} setPayload={setPayload} />
+            <LockedFeature canAccess={canAccess}>
+              <div className="space-y-5">
+                <Interaction type={ch.interaction} payload={payload} setPayload={setPayload} />
 
-            {/* Reflexión */}
-            <div className="space-y-2">
-              <Label>Reflexión (opcional)</Label>
-              <Textarea placeholder="¿Qué te habló Dios hoy?" value={note} onChange={(e)=> setNote(e.target.value)} />
-            </div>
+                <div className="space-y-2">
+                  <Label>Reflexión (opcional)</Label>
+                  <Textarea placeholder="¿Qué te habló Dios hoy?" value={note} onChange={e => setNote(e.target.value)} />
+                </div>
 
-            <div className="space-y-4 rounded-2xl border border-mana-primary/10 bg-white/90 p-5 shadow-sm">
-              <div>
-                <h3 className="font-display text-base text-mana-primary">Mis transformaciones</h3>
-                <p className="text-xs text-mana-muted">Completa estos campos para aterrizar lo que Dios te mostró hoy.</p>
+                <div className="space-y-4 rounded-2xl border border-mana-primary/10 bg-white/90 p-5 shadow-sm">
+                  <div>
+                    <h3 className="font-display text-base text-mana-primary">Mis transformaciones</h3>
+                    <p className="text-xs text-mana-muted">Completa estos campos para aterrizar lo que Dios te mostró hoy.</p>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>¿Qué aprendí?</Label>
+                      <Textarea
+                        placeholder={ch.queAprendi}
+                        value={stringValue(payload.aprendi)}
+                        onChange={e => setPayload(prev => ({ ...prev, aprendi: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>¿Qué deseo alcanzar?</Label>
+                      <Textarea
+                        placeholder={ch.deseoAlcanzar}
+                        value={stringValue(payload.deseoAlcanzarPersonal)}
+                        onChange={e => setPayload(prev => ({ ...prev, deseoAlcanzarPersonal: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>¿Qué deseo conservar?</Label>
+                      <Textarea
+                        placeholder={ch.deseoConservar}
+                        value={stringValue(payload.deseoConservarPersonal)}
+                        onChange={e => setPayload(prev => ({ ...prev, deseoConservarPersonal: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>¿Qué deseo evitar?</Label>
+                      <Textarea
+                        placeholder={ch.deseoEvitar}
+                        value={stringValue(payload.deseoEvitarPersonal)}
+                        onChange={e => setPayload(prev => ({ ...prev, deseoEvitarPersonal: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>¿Qué deseo eliminar?</Label>
+                    <Textarea
+                      placeholder={ch.deseoEliminar}
+                      value={stringValue(payload.deseoEliminarPersonal)}
+                      onChange={e => setPayload(prev => ({ ...prev, deseoEliminarPersonal: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button onClick={() => onCompleted(ch.day, payload, note)}>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />Marcar completado
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>¿Qué aprendí?</Label>
-                  <Textarea
-                    placeholder={ch.queAprendi}
-                    value={stringValue(payload.aprendi)}
-                    onChange={e => setPayload(prev => ({ ...prev, aprendi: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>¿Qué deseo alcanzar?</Label>
-                  <Textarea
-                    placeholder={ch.deseoAlcanzar}
-                    value={stringValue(payload.deseoAlcanzarPersonal)}
-                    onChange={e => setPayload(prev => ({ ...prev, deseoAlcanzarPersonal: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>¿Qué deseo conservar?</Label>
-                  <Textarea
-                    placeholder={ch.deseoConservar}
-                    value={stringValue(payload.deseoConservarPersonal)}
-                    onChange={e => setPayload(prev => ({ ...prev, deseoConservarPersonal: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>¿Qué deseo evitar?</Label>
-                  <Textarea
-                    placeholder={ch.deseoEvitar}
-                    value={stringValue(payload.deseoEvitarPersonal)}
-                    onChange={e => setPayload(prev => ({ ...prev, deseoEvitarPersonal: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>¿Qué deseo eliminar?</Label>
-                <Textarea
-                  placeholder={ch.deseoEliminar}
-                  value={stringValue(payload.deseoEliminarPersonal)}
-                  onChange={e => setPayload(prev => ({ ...prev, deseoEliminarPersonal: e.target.value }))}
-                />
-              </div>
-            </div>
+            </LockedFeature>
 
             <div className="flex items-center gap-3 pt-2">
-              <Button onClick={()=> onCompleted(ch.day, payload, note)} className=""><CheckCircle2 className="h-4 w-4 mr-2"/>Marcar completado</Button>
-              <Select value={String(selectedDay)} onValueChange={(v)=> setSelectedDay(parseInt(v))}>
-                <SelectTrigger className="w-48"><SelectValue placeholder="Ir al día"/></SelectTrigger>
+              <Select value={String(selectedDay)} onValueChange={v => setSelectedDay(parseInt(v))}>
+                <SelectTrigger className="w-48"><SelectValue placeholder="Ir al día" /></SelectTrigger>
                 <SelectContent>
                   {CHALLENGES.map(c => (<SelectItem key={c.day} value={String(c.day)}>Día {c.day}</SelectItem>))}
                 </SelectContent>
               </Select>
+              {!canAccess && (
+                <Button size="sm" variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={() => (window.location.href = "/pago")}>
+                  Donar para desbloquear
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -2857,7 +2942,10 @@ function ProgressCalendar({ completedDays, planStartDate, onOpenDay, onRestartPl
                   )}
                   aria-label={`Día ${cell.dayNumber}`}
                 >
-                  {cell.dayNumber}
+                  <span className="relative flex items-center justify-center">
+                    {cell.dayNumber}
+                    {cell.status === "locked" && <Lock className="absolute -right-2 -top-2 h-3.5 w-3.5 text-mana-muted" />}
+                  </span>
                 </button>
                 <span className="text-[10px] uppercase tracking-wide text-mana-muted">{dateLabel}</span>
               </div>

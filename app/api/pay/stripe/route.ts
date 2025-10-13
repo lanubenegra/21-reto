@@ -9,6 +9,12 @@ type CreateCheckoutPayload = {
   sku: SKU;
   email?: string;
   priceId: string;
+  profile?: {
+    name?: string;
+    phone?: string;
+    country?: string;
+    city?: string;
+  };
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -24,10 +30,14 @@ function resolveOrigin(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as CreateCheckoutPayload;
-    const { sku, email, priceId } = body;
+    const { sku, email, priceId, profile } = body;
 
     if (!sku || !priceId) {
       return NextResponse.json({ error: "Missing sku or priceId" }, { status: 400 });
+    }
+
+    if (!email) {
+      return NextResponse.json({ error: "Missing donor email" }, { status: 400 });
     }
 
     const origin = resolveOrigin(req);
@@ -38,7 +48,13 @@ export async function POST(req: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${origin}/gracias?sku=${sku}&status=success`,
       cancel_url: `${origin}/pago?status=cancel`,
-      metadata: { sku },
+      metadata: {
+        sku,
+        donor_name: profile?.name?.slice(0, 100) ?? "",
+        donor_phone: profile?.phone?.slice(0, 60) ?? "",
+        donor_country: profile?.country?.slice(0, 60) ?? "",
+        donor_city: profile?.city?.slice(0, 60) ?? "",
+      },
     });
 
     return NextResponse.json({ url: session.url });
