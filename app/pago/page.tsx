@@ -5,9 +5,9 @@ import { useState } from 'react'
 
 type SKU = 'retos' | 'agenda' | 'combo'
 
-const PRICE_RETOS = 'price_1SHG3mIyRLQMwrutNjcgG2YJ'
-const PRICE_AGENDA = 'price_1SHQhsIyRLQMwrutPHPJkPHx'
-const PRICE_COMBO = 'price_1SHQjNIyRLQMwrutK4idIL7x'
+const PRICE_RETOS = 'price_1SHd7pIyRLQMwrutFK4nhjiA'
+const PRICE_AGENDA = 'price_1SHd7pIyRLQMwrutFK4nhjiA'
+const PRICE_COMBO = 'price_1SHd9rIyRLQMwrutayn5WCow'
 
 async function pagar(sku: SKU, priceId: string, setLoading: (value: SKU | null) => void) {
   try {
