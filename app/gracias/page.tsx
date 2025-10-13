@@ -73,8 +73,8 @@ export default function GraciasPage() {
       : 'No se realizó ningún cobro. Puedes volver a intentarlo desde la tienda.'
 
   return (
-    <main className="min-h-[100svh] bg-gradient-to-br from-[#0b3b7a] via-[#155e75] to-[#0ea5a3] px-6 py-16 text-white">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
+    <main className="min-h-[100svh] grid place-items-center bg-gradient-to-br from-[#0b3b7a] via-[#155e75] to-[#0ea5a3] px-6 py-16 text-white">
+      <div className="w-full max-w-4xl space-y-10">
         <header className="space-y-3 text-center">
           <h1 className="text-3xl font-semibold md:text-4xl">{title}</h1>
           <p className="text-sm opacity-90">{subtitle}</p>
@@ -88,7 +88,7 @@ export default function GraciasPage() {
         </header>
 
         {status === 'success' ? (
-          <section className="grid gap-4 md:grid-cols-2">
+          <section className="grid gap-6 md:grid-cols-2">
             {(sku === 'retos' || sku === 'combo') && (
               <article className="space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
                 <h2 className="text-xl font-medium">
@@ -101,18 +101,18 @@ export default function GraciasPage() {
                   <Link
                     href="/hoy"
                     className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                      hasRetos
-                        ? 'bg-white/90 text-slate-900 hover:bg-white'
-                        : 'pointer-events-none bg-white/20 text-white/60'
-                    }`}
+                      hasRetos ? 'bg-white/90 text-slate-900 hover:bg-white' : 'bg-white/20 text-white/60'
+                    } ${hasRetos ? '' : 'pointer-events-none'}`}
                   >
                     Ir al reto de hoy
                   </Link>
                   <Link
-                    href="/retos"
-                    className="rounded-full px-5 py-2 text-sm font-medium bg-white/10 hover:bg-white/20"
+                    href="/"
+                    className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                      hasRetos ? 'bg-white/10 hover:bg-white/20' : 'bg-white/20 text-white/60 pointer-events-none'
+                    }`}
                   >
-                    Ver lista de retos
+                    Ingresar a 21 Retos
                   </Link>
                 </div>
                 {!hasRetos && (
@@ -181,4 +181,3 @@ export default function GraciasPage() {
     </main>
   )
 }
-
