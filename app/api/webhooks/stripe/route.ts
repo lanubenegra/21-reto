@@ -58,9 +58,13 @@ export async function POST(req: Request) {
         (session.customer as string) ||
         "";
 
+      if (!email) {
+        console.error("[stripe webhook] missing email in session", session.id);
+      }
+
       const sku = (session.metadata?.sku as "retos" | "agenda" | "combo") || "retos";
 
-      await supabase.from("orders").insert({
+      const { error: orderError } = await supabase.from("orders").insert({
         user_id: null,
         email,
         sku,
@@ -70,16 +74,25 @@ export async function POST(req: Request) {
         status: "paid",
         raw: session as Stripe.Checkout.Session,
       });
+      if (orderError) {
+        console.error("[stripe webhook] orders insert error", orderError.message);
+      }
 
       if (sku === "retos" || sku === "combo") {
-        await supabase
+        const { error: retoError } = await supabase
           .from("entitlements")
           .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" });
+        if (retoError) {
+          console.error("[stripe webhook] entitlements retos error", retoError.message);
+        }
       }
       if (sku === "agenda" || sku === "combo") {
-        await supabase
+        const { error: agendaError } = await supabase
           .from("entitlements")
           .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" });
+        if (agendaError) {
+          console.error("[stripe webhook] entitlements agenda error", agendaError.message);
+        }
         await grantAgenda(email);
       }
 
