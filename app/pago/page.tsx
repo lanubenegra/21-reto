@@ -154,6 +154,7 @@ export default function Pago() {
 
       const response = await fetch('/api/pay/stripe', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sku,

@@ -3,9 +3,16 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 
 type Sku = 'retos' | 'agenda' | 'combo'
-type LicensesResp = { products?: string[] }
+type LicenseEntry = { product?: string | null }
+type LicensesResp = {
+  hasRetos?: boolean;
+  hasAgenda?: boolean;
+  products?: string[];
+  entitlements?: LicenseEntry[];
+}
 
 const AGENDA_URL =
   process.env.NEXT_PUBLIC_AGENDA_APP_URL || 'https://agenda-devocional.example.com'
@@ -29,18 +36,33 @@ export default function GraciasPage() {
   const sku = (qs.get('sku') ?? 'retos').toLowerCase() as Sku
   const status = (qs.get('status') ?? 'success').toLowerCase()
 
+  const { status: authStatus } = useSession()
   const [products, setProducts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
 
+    if (authStatus === 'loading') return
+    if (authStatus !== 'authenticated') {
+      if (mounted) {
+        setProducts([])
+        setLoading(false)
+      }
+      return
+    }
+
     const fetchLicenses = async () => {
       try {
-        const response = await fetch('/api/licenses', { cache: 'no-store' })
+        const response = await fetch('/api/licenses', { cache: 'no-store', credentials: 'include' })
         const payload = (await response.json()) as LicensesResp
         if (!mounted) return
-        setProducts(payload.products ?? [])
+        const list =
+          payload.products ??
+          (payload.entitlements ?? [])
+            .map(entry => entry.product)
+            .filter((product): product is string => Boolean(product))
+        setProducts(list)
       } catch {
         // ignore
       } finally {
@@ -48,17 +70,19 @@ export default function GraciasPage() {
       }
     }
 
-    fetchLicenses()
-    const retry = setTimeout(fetchLicenses, 2500)
+    void fetchLicenses()
+    const retry = setTimeout(() => {
+      void fetchLicenses()
+    }, 2500)
 
     return () => {
       mounted = false
       clearTimeout(retry)
     }
-  }, [])
+  }, [authStatus])
 
-  const hasRetos = useMemo(() => products.includes('retos'), [products])
-  const hasAgenda = useMemo(() => products.includes('agenda'), [products])
+  const hasRetos = useMemo(() => products.includes('retos') || products.includes('combo'), [products])
+  const hasAgenda = useMemo(() => products.includes('agenda') || products.includes('combo'), [products])
 
   const title = (() => {
     if (status !== 'success') return 'Pago cancelado'

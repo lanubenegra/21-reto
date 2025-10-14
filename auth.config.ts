@@ -64,6 +64,7 @@ providers.push(
 
 export const authOptions: AuthOptions = {
   providers,
+  trustHost: true,
   session: {
     strategy: "jwt",
   },

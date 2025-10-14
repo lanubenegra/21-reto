@@ -1151,7 +1151,7 @@ export default function App21Retos() {
 
   useEffect(() => {
     if (authStatus === "loading") return;
-    if (!session?.user?.email) {
+    if (authStatus !== "authenticated" || !session?.user?.email) {
       setLicenseStatus("denied");
       return;
     }
@@ -1161,12 +1161,29 @@ export default function App21Retos() {
 
     (async () => {
       try {
-        const response = await fetch("/api/licenses", { cache: "no-store" });
-        if (!response.ok) throw new Error("license");
-        const payload = (await response.json()) as { products?: string[] };
+        const response = await fetch("/api/licenses", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error(`license:${response.status}`);
+        }
+        const payload = (await response.json()) as {
+          hasRetos?: boolean;
+          products?: string[];
+          entitlements?: Array<{ product?: string | null }>;
+        };
         if (cancelled) return;
-        const products = payload?.products ?? [];
-        setLicenseStatus(products.includes("retos") || products.includes("combo") ? "allowed" : "denied");
+        const products =
+          payload?.products ??
+          payload?.entitlements
+            ?.map((entry) => entry.product)
+            .filter((product): product is string => Boolean(product)) ??
+            [];
+        const hasRetosAccess =
+          payload?.hasRetos ??
+          products.some((product) => product === "retos" || product === "combo");
+        setLicenseStatus(hasRetosAccess ? "allowed" : "denied");
       } catch {
         if (!cancelled) {
           setLicenseStatus("denied");
