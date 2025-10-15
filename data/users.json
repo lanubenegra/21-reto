@@ -1,1 +1,12 @@
-{"users":[],"resetTokens":[]}
+{
+  "users": [
+    {
+      "id": "a8d21614-806f-4690-befe-32414d588684",
+      "name": "santi quiceno",
+      "email": "santiquilva@gmail.com",
+      "passwordHash": "$2b$12$Pq1Rr56R1WcaS/ItCDin4OLunJw8DT.I6i6r5F.5GGmXRnGfN7grK",
+      "createdAt": "2025-10-15T01:33:12.751Z"
+    }
+  ],
+  "resetTokens": []
+}

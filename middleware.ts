@@ -14,4 +14,6 @@ export function middleware(req: NextRequest) {
   return res;
 }
 
-export const config = { matcher: "/:path*" };
+export const config = {
+  matcher: ["/((?!api/(auth|licenses|whoami|webhooks/stripe)).*)"],
+};
