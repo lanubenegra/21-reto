@@ -54,7 +54,7 @@ export default function GraciasPage() {
 
     const fetchLicenses = async () => {
       try {
-        const response = await fetch('/api/licenses', { cache: 'no-store', credentials: 'include' })
+        const response = await fetch(`/api/licenses?ts=${Date.now()}`, { cache: 'no-store', credentials: 'include' })
         const payload = (await response.json()) as LicensesResp
         if (!mounted) return
         const list =

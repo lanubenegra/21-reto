@@ -1161,7 +1161,7 @@ export default function App21Retos() {
 
     (async () => {
       try {
-        const response = await fetch("/api/licenses", {
+        const response = await fetch(`/api/licenses?ts=${Date.now()}`, {
           cache: "no-store",
           credentials: "include",
         });

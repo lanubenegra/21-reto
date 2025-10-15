@@ -1,0 +1,1 @@
+ALTER TABLE entitlements ADD CONSTRAINT entitlements_email_product_uniq UNIQUE (email, product);
