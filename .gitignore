@@ -20,3 +20,4 @@ tsconfig.tsbuildinfo
 *.mov
 *.avi
 *.psd
+.vercel

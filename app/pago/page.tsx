@@ -3,14 +3,11 @@
 import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
+import { useCookies } from 'next-client-cookies'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { HeartHandshake, Loader2 } from 'lucide-react'
-
-const PRICE_RETOS = 'price_1SHG3mIyRLQMwrutNjcgG2YJ'
-const PRICE_AGENDA = 'price_1SHQhsIyRLQMwrutPHPJkPHx'
-const PRICE_COMBO = 'price_1SHQjNIyRLQMwrutK4idIL7x'
 
 type SKU = 'retos' | 'agenda' | 'combo'
 
@@ -32,30 +29,65 @@ const INITIAL_FORM: FormState = {
   city: '',
 }
 
-const OPTION_COPY: Record<SKU, { title: string; description: string; priceId: string }> = {
+const OPTION_COPY: Record<SKU, { title: string; description: string }> = {
   retos: {
     title: 'Donar 21 Retos',
     description: 'Activa la ruta completa de los 21 Retos en esta plataforma.',
-    priceId: PRICE_RETOS,
   },
   agenda: {
     title: 'Donar Agenda Devocional',
     description: 'Recibe acceso a la Agenda Devocional del Ministerio Maná.',
-    priceId: PRICE_AGENDA,
   },
   combo: {
     title: 'Donar Combo (Retos + Agenda)',
     description: 'Activa los 21 Retos y la Agenda Devocional al mismo tiempo.',
-    priceId: PRICE_COMBO,
   },
 }
 
 export default function Pago() {
   const { data: session } = useSession()
   const isLoggedIn = Boolean(session?.user)
+  const cookies = useCookies()
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [loading, setLoading] = useState<SKU | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const detectCountryCookie = () => {
+    const raw = (cookies.get('country') || '').trim().toUpperCase()
+    return raw.length === 2 ? raw : ''
+  }
+
+  const normalizeCountry = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return detectCountryCookie() || 'US'
+    const upper = trimmed.toUpperCase()
+    if (upper.length === 2) return upper
+
+    const normalized = upper
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\./g, '')
+      .replace(/\s+/g, ' ')
+
+    const map: Record<string, string> = {
+      COLOMBIA: 'CO',
+      'REPUBLICA DE COLOMBIA': 'CO',
+      MEXICO: 'MX',
+      'ESTADOS UNIDOS': 'US',
+      ESTADOSUNIDOS: 'US',
+      USA: 'US',
+      PERU: 'PE',
+      CHILE: 'CL',
+      ARGENTINA: 'AR',
+      ECUADOR: 'EC',
+      PANAMA: 'PA',
+      'COSTA RICA': 'CR',
+      COSTARICA: 'CR',
+      ESPANA: 'ES',
+      ESPAÑA: 'ES',
+    }
+
+    return map[normalized] || detectCountryCookie() || 'US'
+  }
 
   useEffect(() => {
     if (session?.user?.email) {
@@ -144,13 +176,32 @@ export default function Pago() {
     if (loading) return
     if (!validateForm()) return
 
-    const priceId = OPTION_COPY[sku].priceId
     const email = form.email.trim().toLowerCase()
+    const countryCode = normalizeCountry(form.country)
 
     setLoading(sku)
     try {
       const accountReady = await ensureAccount(email)
       if (!accountReady) return
+
+      const pricingResponse = await fetch(`/api/prices?sku=${sku}&country=${countryCode}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+
+      if (!pricingResponse.ok) {
+        const data = await pricingResponse.json().catch(() => null)
+        throw new Error(data?.message ?? 'No pudimos obtener el precio para tu país.')
+      }
+
+      const pricePayload = (await pricingResponse.json()) as { provider: 'wompi' | 'stripe'; url: string }
+
+      if (pricePayload.provider === 'wompi') {
+        window.location.href = pricePayload.url
+        return
+      }
+
+      const priceId = pricePayload.url
 
       const response = await fetch('/api/pay/stripe', {
         method: 'POST',
@@ -195,7 +246,7 @@ export default function Pago() {
           <span className="text-xs uppercase tracking-[0.45em] text-white/70">Ministerio Maná · Donaciones</span>
           <h1 className="text-4xl font-semibold md:text-5xl">Sostén 21 Retos — Donación en línea</h1>
           <p className="mx-auto max-w-2xl text-sm text-white/80">
-            Tus donaciones permiten que más personas vivan los 21 Retos y accedan a la Agenda Devocional. Llena tus datos, confirma con tu correo y completa el aporte seguro en Stripe.
+            Tus donaciones permiten que más personas vivan los 21 Retos y accedan a la Agenda Devocional. Llena tus datos, confirma con tu correo y completa el aporte a través de nuestras pasarelas seguras (Stripe o Wompi según tu país).
           </p>
         </header>
 
@@ -298,7 +349,7 @@ export default function Pago() {
             })}
 
             <div className="rounded-3xl bg-white/10 p-4 text-center text-xs text-white/70 ring-1 ring-white/10">
-              Usa la tarjeta de prueba 4242 4242 4242 4242, fecha futura y CVC 123 cuando estés en el checkout de Stripe (modo prueba).
+              Si el checkout es Stripe (modo prueba), usa la tarjeta 4242 4242 4242 4242 con fecha futura y CVC 123.
             </div>
 
             <Link href="/" className="block text-center text-xs underline underline-offset-4 text-white/80 hover:text-white">
