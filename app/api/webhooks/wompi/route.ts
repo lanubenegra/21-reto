@@ -30,6 +30,8 @@ export async function POST(req: Request) {
     headers.get('x-signature') ||
     null;
 
+  console.log('[wompi webhook] headers', Object.fromEntries(headers.entries()));
+
   if (!verifyWompiSignature(raw, signatureHeader, secret)) {
     console.warn("[wompi webhook] bad signature", {
       signatureHeader,
