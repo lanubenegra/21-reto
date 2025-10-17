@@ -17,6 +17,8 @@ type FormState = {
   phone: string
   country: string
   city: string
+  documentType: string
+  documentNumber: string
 }
 
 const INITIAL_FORM: FormState = {
@@ -26,6 +28,8 @@ const INITIAL_FORM: FormState = {
   phone: '',
   country: '',
   city: '',
+  documentType: '',
+  documentNumber: '',
 }
 
 const OPTION_COPY: Record<SKU, { title: string; description: string }> = {
@@ -42,6 +46,16 @@ const OPTION_COPY: Record<SKU, { title: string; description: string }> = {
     description: 'Activa los 21 Retos y la Agenda Devocional al mismo tiempo.',
   },
 }
+
+const DOCUMENT_TYPES = [
+  { value: '', label: 'Selecciona un documento' },
+  { value: 'CC', label: 'Cédula de ciudadanía (CC)' },
+  { value: 'CE', label: 'Cédula de extranjería (CE)' },
+  { value: 'TI', label: 'Tarjeta de identidad (TI)' },
+  { value: 'NIT', label: 'NIT' },
+  { value: 'PP', label: 'Pasaporte' },
+  { value: 'DNI', label: 'Documento nacional (DNI)' },
+]
 
 export default function Pago() {
   const { data: session } = useSession()
@@ -96,12 +110,26 @@ export default function Pago() {
     }
   }, [session?.user?.email])
 
+  useEffect(() => {
+    if (session?.user?.name) {
+      setForm(prev => ({ ...prev, name: session.user?.name ?? prev.name }))
+    }
+  }, [session?.user?.name])
+
   const handleChange = (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({ ...prev, [field]: event.target.value }))
+  }
+
+  const handleSelect = (field: keyof FormState) => (event: React.ChangeEvent<HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [field]: event.target.value }))
   }
 
   const validateForm = () => {
     const required: Array<keyof FormState> = ['name', 'email', 'phone', 'country', 'city']
+    const countryCode = normalizeCountry(form.country)
+    if (countryCode === 'CO') {
+      required.push('documentType', 'documentNumber')
+    }
     for (const key of required) {
       if (!form[key].trim()) {
         const labels: Record<keyof FormState, string> = {
@@ -111,6 +139,8 @@ export default function Pago() {
           phone: 'Teléfono',
           country: 'País',
           city: 'Ciudad',
+          documentType: 'Tipo de documento',
+          documentNumber: 'Número de documento',
         }
         setFeedback(`Por favor completa el campo “${labels[key]}”.`)
         return false
@@ -217,6 +247,8 @@ export default function Pago() {
             phone: form.phone.trim(),
             country: form.country.trim(),
             city: form.city.trim(),
+            documentType: form.documentType.trim(),
+            documentNumber: form.documentNumber.trim(),
           },
         }),
       })
@@ -247,7 +279,7 @@ export default function Pago() {
           <span className="text-xs uppercase tracking-[0.45em] text-white/70">Ministerio Maná · Donaciones</span>
           <h1 className="text-4xl font-semibold md:text-5xl">Sostén 21 Retos — Donación en línea</h1>
           <p className="mx-auto max-w-2xl text-sm text-white/80">
-            Tus donaciones permiten que más personas vivan los 21 Retos y accedan a la Agenda Devocional. Llena tus datos, confirma con tu correo y completa el aporte a través de nuestras pasarelas seguras (Stripe o Wompi según tu país).
+            Tus donaciones permiten que más personas vivan los 21 Retos y accedan a la Agenda Devocional. Llena tus datos, confirma con tu correo y completa el aporte a través de nuestras pasarelas seguras (Stripe o Wompi según tu país). Si estás en Colombia necesitaremos tu tipo y número de documento para fines de facturación.
           </p>
         </header>
 
@@ -271,6 +303,37 @@ export default function Pago() {
                   <Input id="donor-phone" value={form.phone} onChange={handleChange('phone')} placeholder="+57 300 000 0000" className="bg-white/90 text-slate-900" />
                 </div>
               </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="donor-document-type" className="text-xs uppercase tracking-[0.3em] text-white/60">Tipo de documento</Label>
+                  <select
+                    id="donor-document-type"
+                    value={form.documentType}
+                    onChange={handleSelect('documentType')}
+                    className="w-full rounded-md border border-transparent bg-white/90 px-3 py-2 text-sm text-slate-900 outline-none ring-0 focus:border-white focus:ring-2 focus:ring-white/60"
+                  >
+                    {DOCUMENT_TYPES.map(option => (
+                      <option key={option.value || 'empty'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="donor-document-number" className="text-xs uppercase tracking-[0.3em] text-white/60">Número de documento</Label>
+                  <Input
+                    id="donor-document-number"
+                    value={form.documentNumber}
+                    onChange={handleChange('documentNumber')}
+                    placeholder="CC 1234567890"
+                    className="bg-white/90 text-slate-900"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-white/70">
+                Si estás en Colombia, estos datos son obligatorios para reportes tributarios. Si ya los tenemos guardados, puedes actualizarlos si cambiaron.
+              </p>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
