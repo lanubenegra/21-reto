@@ -7,14 +7,22 @@ export const dynamic = "force-dynamic";
 
 function verifyWompiSignature(raw: string, signature: string) {
   const secret = process.env.WOMPI_EVENT_SECRET!;
-  const hash = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-  return hash === signature;
+  const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+  const sanitized = signature.startsWith("sha256=") ? signature.slice(7) : signature;
+  return expected === sanitized;
 }
 
 export async function POST(req: Request) {
   const raw = await req.text();
-  const signature = (req.headers as Headers).get("wompi-signature") || "";
-  if (!verifyWompiSignature(raw, signature)) return new NextResponse("Invalid signature", { status: 401 });
+  const headers = req.headers as Headers;
+  const signature =
+    headers.get("x-wompi-event-signature") ||
+    headers.get("wompi-signature") ||
+    headers.get("x-signature") ||
+    "";
+  if (!signature || !verifyWompiSignature(raw, signature)) {
+    return new NextResponse("Invalid signature", { status: 401 });
+  }
 
   const evt = JSON.parse(raw);
   const email = evt?.data?.transaction?.customer_email ?? null;

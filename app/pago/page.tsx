@@ -1,9 +1,8 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
-import { useCookies } from 'next-client-cookies'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -47,18 +46,20 @@ const OPTION_COPY: Record<SKU, { title: string; description: string }> = {
 export default function Pago() {
   const { data: session } = useSession()
   const isLoggedIn = Boolean(session?.user)
-  const cookies = useCookies()
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [loading, setLoading] = useState<SKU | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const detectCountryCookie = () => {
-    const raw = (cookies.get('country') || '').trim().toUpperCase()
-    return raw.length === 2 ? raw : ''
-  }
+  const cookieCountry = useMemo(() => {
+    if (typeof document === 'undefined') return ''
+    const match = document.cookie.split(';').map(entry => entry.trim()).find(entry => entry.startsWith('country='))
+    if (!match) return ''
+    const value = match.split('=').slice(1).join('=').toUpperCase()
+    return value.length === 2 ? value : ''
+  }, [])
 
   const normalizeCountry = (value: string) => {
     const trimmed = value.trim()
-    if (!trimmed) return detectCountryCookie() || 'US'
+    if (!trimmed) return cookieCountry || 'US'
     const upper = trimmed.toUpperCase()
     if (upper.length === 2) return upper
 
@@ -86,7 +87,7 @@ export default function Pago() {
       ESPAÑA: 'ES',
     }
 
-    return map[normalized] || detectCountryCookie() || 'US'
+    return map[normalized] || cookieCountry || 'US'
   }
 
   useEffect(() => {
