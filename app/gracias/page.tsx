@@ -86,9 +86,9 @@ export default function GraciasPage() {
 
   const title = (() => {
     if (status !== 'success') return 'Pago cancelado'
-    if (sku === 'retos') return '¡Listo! Tu acceso a 21 Retos está activo'
-    if (sku === 'agenda') return '¡Listo! Acceso a Agenda Devocional'
-    return '¡Listo! Acceso al Combo (Agenda + 21 Retos)'
+    if (sku === 'agenda') return '¡Gracias por tu donación! Acceso a Agenda activado'
+    if (sku === 'combo') return '¡Gracias por tu donación! Acceso a 21 Retos y Agenda activados'
+    return '¡Gracias por tu donación! Tu acceso a 21 Retos está activado'
   })()
 
   const subtitle =
@@ -104,17 +104,17 @@ export default function GraciasPage() {
           <p className="text-sm opacity-90">{subtitle}</p>
           {status === 'success' && (
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <Pill ok={hasRetos}>Retos {hasRetos ? 'activado' : 'pendiente'}</Pill>
-              <Pill ok={hasAgenda}>Agenda {hasAgenda ? 'activado' : 'pendiente'}</Pill>
+              {hasRetos && <Pill ok>Retos activado</Pill>}
+              {hasAgenda && <Pill ok>Agenda activada</Pill>}
               {loading && <Pill>verificando…</Pill>}
             </div>
           )}
         </header>
 
         {status === 'success' ? (
-          <section className="grid gap-6 md:grid-cols-2">
+          <section className="grid justify-items-center gap-6 md:grid-cols-2">
             {(sku === 'retos' || sku === 'combo') && (
-              <article className="space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
+              <article className="w-full max-w-lg space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
                 <h2 className="text-xl font-medium">
                   Acceso a <span className="font-semibold">21 Retos</span>
                 </h2>
@@ -128,12 +128,12 @@ export default function GraciasPage() {
                       hasRetos ? 'bg-white/90 text-slate-900 hover:bg-white' : 'bg-white/20 text-white/60'
                     } ${hasRetos ? '' : 'pointer-events-none'}`}
                   >
-                    Ir al reto de hoy
+                    Comenzar mi primer reto
                   </Link>
                   <Link
                     href="/"
                     className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                      hasRetos ? 'bg-white/10 hover:bg-white/20' : 'bg-white/20 text-white/60 pointer-events-none'
+                      hasRetos ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white/20 text-white/60 pointer-events-none'
                     }`}
                   >
                     Ingresar a 21 Retos
@@ -148,7 +148,7 @@ export default function GraciasPage() {
             )}
 
             {(sku === 'agenda' || sku === 'combo') && (
-              <article className="space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
+              <article className="w-full max-w-lg space-y-3 rounded-3xl bg-white/10 p-6 ring-1 ring-white/20">
                 <h2 className="text-xl font-medium">
                   Acceso a <span className="font-semibold">Agenda Devocional</span>
                 </h2>
@@ -192,15 +192,17 @@ export default function GraciasPage() {
           </div>
         )}
 
-        <footer className="flex flex-wrap items-center justify-center gap-3 text-sm text-white/80">
-          <Link href="/" className="underline underline-offset-4">Volver al inicio</Link>
-          <button
-            onClick={() => location.reload()}
-            className="underline underline-offset-4 hover:text-white"
-          >
-            Actualizar estado
-          </button>
-        </footer>
+        <section className="space-y-2 text-center text-sm text-white/80">
+          <p>
+            Si tienes algún inconveniente, escríbenos a{' '}
+            <a href="mailto:info@ministeriomana.org" className="underline underline-offset-4 hover:text-white">
+              info@ministeriomana.org
+            </a>
+          </p>
+          <Link href="/" className="inline-flex items-center justify-center rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-slate-900 hover:bg-white">
+            Volver al inicio
+          </Link>
+        </section>
       </div>
     </main>
   )

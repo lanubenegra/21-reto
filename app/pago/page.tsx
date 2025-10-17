@@ -116,6 +116,12 @@ export default function Pago() {
     }
   }, [session?.user?.name])
 
+  useEffect(() => {
+    if (cookieCountry && !form.country) {
+      setForm(prev => ({ ...prev, country: cookieCountry }))
+    }
+  }, [cookieCountry, form.country])
+
   const handleChange = (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [field]: event.target.value }))
   }
