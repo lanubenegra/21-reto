@@ -14,14 +14,29 @@ function verifyWompiSignature(raw: string, signature: string, secret: string) {
 export async function POST(req: Request) {
   const raw = await req.text();
   const headers = req.headers as Headers;
-  const signature =
+  const secret = process.env.WOMPI_EVENT_SECRET!;
+  const signatureHeader =
     headers.get("x-wompi-event-signature") ||
     headers.get("wompi-signature") ||
     headers.get("x-signature") ||
     "";
-  const secret = process.env.WOMPI_EVENT_SECRET!;
-  if (!signature || !verifyWompiSignature(raw, signature, secret)) {
-    console.warn("[wompi webhook] bad signature", { signature, body: raw.slice(0, 120) });
+
+  const signatureCandidates = signatureHeader
+    ? signatureHeader.split(',').map(part => part.trim())
+    : [];
+
+  const signatures = signatureCandidates
+    .map(entry => (entry.startsWith('sha256=') ? entry.slice(7) : entry))
+    .filter(entry => entry.length);
+
+  const isValid = signatures.some(candidate => verifyWompiSignature(raw, candidate, secret));
+
+  if (!isValid) {
+    console.warn("[wompi webhook] bad signature", {
+      candidate: signatureHeader,
+      parsed: signatures,
+      bodySample: raw.slice(0, 160),
+    });
     return new NextResponse("Invalid signature", { status: 401 });
   }
 
