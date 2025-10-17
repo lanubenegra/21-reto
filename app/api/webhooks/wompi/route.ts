@@ -5,10 +5,18 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function verifyWompiSignature(raw: string, signature: string, secret: string) {
-  const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-  const sanitized = signature?.startsWith("sha256=") ? signature.slice(7) : signature;
-  return expected === sanitized;
+function verifyWompiSignature(raw: string, signature: string | null, secret: string) {
+  if (!signature) return false;
+  const candidates = signature
+    .split(',')
+    .map(part => part.trim())
+    .map(entry => (entry.startsWith('sha256=') ? entry.slice(7) : entry))
+    .filter(Boolean);
+
+  if (!candidates.length) return false;
+
+  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+  return candidates.some(candidate => candidate === expected);
 }
 
 export async function POST(req: Request) {
@@ -16,25 +24,14 @@ export async function POST(req: Request) {
   const headers = req.headers as Headers;
   const secret = process.env.WOMPI_EVENT_SECRET!;
   const signatureHeader =
-    headers.get("x-wompi-event-signature") ||
-    headers.get("wompi-signature") ||
-    headers.get("x-signature") ||
-    "";
+    headers.get('x-wompi-event-signature') ||
+    headers.get('wompi-signature') ||
+    headers.get('x-signature') ||
+    null;
 
-  const signatureCandidates = signatureHeader
-    ? signatureHeader.split(',').map(part => part.trim())
-    : [];
-
-  const signatures = signatureCandidates
-    .map(entry => (entry.startsWith('sha256=') ? entry.slice(7) : entry))
-    .filter(entry => entry.length);
-
-  const isValid = signatures.some(candidate => verifyWompiSignature(raw, candidate, secret));
-
-  if (!isValid) {
+  if (!verifyWompiSignature(raw, signatureHeader, secret)) {
     console.warn("[wompi webhook] bad signature", {
-      candidate: signatureHeader,
-      parsed: signatures,
+      signatureHeader,
       bodySample: raw.slice(0, 160),
     });
     return new NextResponse("Invalid signature", { status: 401 });
