@@ -5,10 +5,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function verifyWompiSignature(raw: string, signature: string) {
-  const secret = process.env.WOMPI_EVENT_SECRET!;
+function verifyWompiSignature(raw: string, signature: string, secret: string) {
   const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
-  const sanitized = signature.startsWith("sha256=") ? signature.slice(7) : signature;
+  const sanitized = signature?.startsWith("sha256=") ? signature.slice(7) : signature;
   return expected === sanitized;
 }
 
@@ -20,7 +19,9 @@ export async function POST(req: Request) {
     headers.get("wompi-signature") ||
     headers.get("x-signature") ||
     "";
-  if (!signature || !verifyWompiSignature(raw, signature)) {
+  const secret = process.env.WOMPI_EVENT_SECRET!;
+  if (!signature || !verifyWompiSignature(raw, signature, secret)) {
+    console.warn("[wompi webhook] bad signature", { signature, body: raw.slice(0, 120) });
     return new NextResponse("Invalid signature", { status: 401 });
   }
 
