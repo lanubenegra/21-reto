@@ -12,7 +12,15 @@ export async function GET(req: Request) {
   const country = (searchParams.get("country") || "US").toUpperCase();
   if (!sku) return NextResponse.json({ message: "sku requerido" }, { status: 400 });
 
-  const provider = country === "CO" ? "wompi" : "stripe";
+  const { data: overrides } = await supabaseAdmin
+    .from("prices")
+    .select("provider")
+    .eq("product", sku)
+    .eq("country", country)
+    .eq("active", true)
+    .maybeSingle();
+
+  const provider = overrides?.provider ?? (country === "CO" ? "wompi" : "stripe");
 
   const { data: row } = await supabaseAdmin
     .from("prices")
