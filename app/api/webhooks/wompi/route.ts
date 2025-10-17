@@ -38,25 +38,17 @@ export async function POST(req: Request) {
 
   console.log('[wompi webhook] headers', Object.fromEntries(headers.entries()));
 
-  if (!verifyWompiSignature(raw, signatureHeader, secret)) {
-    console.warn("[wompi webhook] bad signature", {
-      signatureHeader,
-      bodySample: raw.slice(0, 160),
-    });
-    return new NextResponse("Invalid signature", { status: 401 });
-  }
-
   const evt = JSON.parse(raw);
   const checksumFromBody = evt?.signature?.checksum ?? null;
   const candidates = normalizeCandidates(signatureHeader, checksumFromBody);
 
   if (!verifyChecksum(raw, secret, candidates)) {
-    console.warn('[wompi webhook] bad signature', {
+    console.warn("[wompi webhook] bad signature", {
       signatureHeader,
       checksumFromBody,
       bodySample: raw.slice(0, 160),
     });
-    return new NextResponse('Invalid signature', { status: 401 });
+    return new NextResponse("Invalid signature", { status: 401 });
   }
 
   const email = evt?.data?.transaction?.customer_email ?? null;
