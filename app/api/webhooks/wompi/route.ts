@@ -25,6 +25,7 @@ export async function POST(req: Request) {
   const secret = process.env.WOMPI_EVENT_SECRET!;
   const signatureHeader =
     headers.get('x-wompi-event-signature') ||
+    headers.get('x-webhook-signature') ||
     headers.get('wompi-signature') ||
     headers.get('x-signature') ||
     null;
