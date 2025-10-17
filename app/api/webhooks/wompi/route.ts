@@ -55,7 +55,18 @@ export async function POST(req: Request) {
   const ref = evt?.data?.transaction?.reference ?? "";
   const sku = /combo/i.test(ref) ? "combo" : /agenda/i.test(ref) ? "agenda" : "retos";
 
-  await supabaseAdmin.from("orders").insert({ email, sku, provider: "wompi", status: "paid", raw: evt });
+  const amount = evt?.data?.transaction?.amount_in_cents ?? 0;
+  const currency = evt?.data?.transaction?.currency ?? null;
+
+  await supabaseAdmin.from("orders").insert({
+    email,
+    sku,
+    provider: "wompi",
+    status: "paid",
+    amount,
+    currency,
+    raw: evt,
+  });
 
   const products = sku === "combo" ? ["agenda", "retos"] : [sku];
   await supabaseAdmin
