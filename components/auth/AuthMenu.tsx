@@ -7,7 +7,7 @@ import Link from "next/link";
 
 export default function AuthMenu() {
   const { data: session, status } = useSession();
-  const role = (session?.user as any)?.role ?? "user";
+  const role = session?.user?.role ?? "user";
   const isAdmin = ["support", "admin", "superadmin"].includes(role);
 
   if (status === "loading") {
