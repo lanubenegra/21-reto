@@ -21,11 +21,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 });
   }
 
-  const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ email });
+  const { data: profile, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email")
+    .eq("email", email)
+    .maybeSingle();
   if (error) {
-    console.error("[password reset] listUsers failed", error.message);
+    console.error("[password reset] profile query failed", error.message);
   }
-  const user = usersData?.users?.[0] ?? null;
+  const user = profile ? { id: profile.id, email: profile.email } : null;
 
   if (!user) {
     // Do not leak info
