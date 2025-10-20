@@ -45,12 +45,27 @@ async function loadJsonUsers() {
   }
 }
 
-async function migrateUser(user) {
+async function loadUserStates() {
+  const filePath = path.join(rootDir, "data", "user-state.json");
+  try {
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    return parsed;
+  } catch (error) {
+    console.warn("Unable to read data/user-state.json:", error.message);
+    return {};
+  }
+}
+
+async function migrateUser(user, stateStore) {
   const email = normalizeEmail(user.email);
   if (!email) {
     console.warn("Skipping user without email:", user);
     return;
-}
+  }
   const name = user.name || email;
   const passwordHash = user.passwordHash;
 
@@ -104,11 +119,23 @@ async function migrateUser(user) {
   await supabase.from("entitlements").update({ user_id: userId }).eq("email", email);
   await supabase.from("orders").update({ user_id: userId }).eq("email", email);
 
+  const storedState = stateStore[email];
+  if (storedState && typeof storedState === "object") {
+    await supabase.from("user_state").upsert({
+      user_id: userId,
+      email,
+      state: storedState,
+      updated_at: new Date().toISOString(),
+    });
+    console.log(`Migrated state for ${email}`);
+  }
+
   console.log(`Migrated user ${email} -> ${userId}`);
 }
 
 async function run() {
   const users = await loadJsonUsers();
+  const stateStore = await loadUserStates();
   if (!users.length) {
     console.log("No users found in JSON; nothing to migrate.");
     return;
@@ -116,7 +143,7 @@ async function run() {
 
   for (const user of users) {
     try {
-      await migrateUser(user);
+      await migrateUser(user, stateStore);
     } catch (error) {
       console.error(`Migration failed for ${user.email}:`, error);
     }

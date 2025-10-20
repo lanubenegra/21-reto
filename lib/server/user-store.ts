@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeEmail } from "@/lib/email";
+import { emptyUserState } from "@/lib/user-state";
 
 type StoredUser = {
   id: string;
@@ -76,6 +77,13 @@ export async function createUser(name: string, email: string, password: string) 
     user_id: user.id,
     password_hash: hashed,
     password_version: 0,
+    updated_at: new Date().toISOString(),
+  });
+
+  await supabaseAdmin.from("user_state").upsert({
+    user_id: user.id,
+    email: normalizedEmail,
+    state: JSON.parse(JSON.stringify(emptyUserState())),
     updated_at: new Date().toISOString(),
   });
 

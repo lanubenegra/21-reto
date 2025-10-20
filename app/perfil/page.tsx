@@ -3,7 +3,71 @@ import { getServerSession } from "next-auth";
 
 import authOptions from "@/auth.config";
 import { supabaseServer } from "@/lib/supabase/server";
-import ProfileClient from "./ProfileClient";
+import { getUserState } from "@/lib/server/state-store";
+import type { PersonalTask, UserState } from "@/lib/user-state";
+import ProfileClient, { type GoalHighlight, type NoteHighlight } from "./ProfileClient";
+
+const fallbackGoalId = () => `goal-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const sanitizeText = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+
+const buildGoalHighlights = (state: UserState): GoalHighlight[] => {
+  const highlights: GoalHighlight[] = [];
+  const seen = new Set<string>();
+
+  (state.goals ?? []).forEach((raw) => {
+    if (!raw || typeof raw !== "object") return;
+    const source = raw as Record<string, unknown>;
+    const id = typeof source.id === "string" && source.id.trim() ? source.id : fallbackGoalId();
+    if (seen.has(id)) return;
+
+    const objective = sanitizeText(source.objective);
+    const goal = sanitizeText(source.goal);
+    const indicator = sanitizeText(source.indicator);
+    const action = sanitizeText(source.action);
+    const title = objective || goal || indicator || action;
+    if (!title) return;
+
+    highlights.push({
+      id,
+      title,
+      detail: goal && goal !== title ? goal : indicator || action || null,
+      area: typeof source.area === "string" ? source.area : undefined,
+      targetDate: typeof source.targetDate === "string" ? source.targetDate : undefined,
+    });
+    seen.add(id);
+  });
+
+  (state.personalTasks ?? []).forEach((task: PersonalTask) => {
+    if (task.category !== "goal") return;
+    const title = sanitizeText(task.description);
+    if (!title) return;
+    const id = task.id || fallbackGoalId();
+    if (seen.has(id)) return;
+    highlights.push({
+      id,
+      title,
+      detail: task.notes ?? null,
+      area: task.area ?? undefined,
+      targetDate: task.targetDate ?? undefined,
+      completed: task.completed ?? false,
+    });
+    seen.add(id);
+  });
+
+  return highlights;
+};
+
+const buildNoteHighlights = (state: UserState): NoteHighlight[] => {
+  const entries = state.diary ?? [];
+  return entries
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => ({
+      date: typeof entry.date === "string" ? entry.date : new Date().toISOString(),
+      text: sanitizeText(entry.text) || "(Sin contenido)",
+    }))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+};
 
 export default async function PerfilPage() {
   const session = await getServerSession(authOptions);
@@ -20,7 +84,7 @@ export default async function PerfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, country, whatsapp, timezone, photo_url, role, created_at, email")
+    .select("display_name, country, whatsapp, role, created_at, email")
     .eq("id", userId)
     .maybeSingle();
 
@@ -38,9 +102,19 @@ export default async function PerfilPage() {
     created_at: item.created_at,
   }));
 
+  const state = await getUserState(userId, email);
+  const goals = buildGoalHighlights(state);
+  const notes = buildNoteHighlights(state);
+
   return (
     <main className="min-h-[calc(100vh-120px)] bg-mana-surface/50 px-4 py-10">
-      <ProfileClient profile={profile ?? null} email={email} entitlements={entitlements} />
+      <ProfileClient
+        profile={profile ?? null}
+        email={email}
+        entitlements={entitlements}
+        goals={goals}
+        notes={notes}
+      />
     </main>
   );
 }
