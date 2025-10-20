@@ -10,7 +10,8 @@ export async function GET() {
   const session = await requireSession();
   assertRole(session, ["support", "admin", "superadmin"]);
 
-  const value = cookies().get(COOKIE)?.value ?? null;
+  const cookieStore = await cookies();
+  const value = cookieStore.get(COOKIE)?.value ?? null;
   return NextResponse.json({ email: value });
 }
 
