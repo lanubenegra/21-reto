@@ -385,11 +385,24 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
     setError(null);
     try {
       const payload: Record<string, string | null> = {};
-      (["display_name", "country", "whatsapp", "timezone", "photo_url"] as const).forEach((key) => {
+      const fieldKeys: Array<keyof typeof form> = ["display_name", "country", "whatsapp", "timezone", "photo_url"];
+      fieldKeys.forEach((key) => {
+        const originalValue = profile[key as keyof ProfileRow];
         const raw = form[key] ?? "";
         const trimmed = raw.trim();
+        const normalizedOriginal = typeof originalValue === "string" ? originalValue.trim() : "";
+
+        if (trimmed === normalizedOriginal) {
+          return;
+        }
+
         payload[key] = trimmed ? trimmed : null;
       });
+
+      if (!Object.keys(payload).length) {
+        setMessage("No hay cambios para guardar.");
+        return;
+      }
 
       const res = await fetch("/api/admin/users/update-profile", {
         method: "POST",

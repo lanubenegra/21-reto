@@ -26,14 +26,27 @@ export async function POST(req: Request) {
   const payload = schema.parse(await req.json());
   const { userId, ...fields } = payload;
 
-  if (Object.keys(fields).length === 0) {
+  const updates: Record<string, string | null> = {};
+  (Object.keys(fields) as Array<keyof typeof fields>).forEach((key) => {
+    const value = fields[key];
+    if (value !== undefined) {
+      updates[key] = value;
+    }
+  });
+
+  if (!Object.keys(updates).length) {
     return NextResponse.json({ error: "nothing_to_update" }, { status: 400 });
   }
 
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update(fields)
-    .eq("id", userId);
+    .upsert(
+      {
+        id: userId,
+        ...updates,
+      },
+      { onConflict: "id" },
+    );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -42,7 +55,7 @@ export async function POST(req: Request) {
   await logAdminAction(
     actorId,
     "admin.update_profile",
-    fields,
+    updates,
     { userId },
     req,
   );
