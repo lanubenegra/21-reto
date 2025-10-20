@@ -1,7 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,16 +35,6 @@ const run = async () => {
     console.error("Failed:", error.message);
     process.exit(1);
   }
-
-  const hashed = await bcrypt.hash(newPassword, 12);
-  await supabase
-    .from("user_credentials")
-    .upsert({
-      user_id: userId,
-      password_hash: hashed,
-      password_version: 0,
-      updated_at: new Date().toISOString(),
-    });
   console.log("Password updated for", data.user?.email ?? userId);
 };
 

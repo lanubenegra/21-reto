@@ -70,12 +70,6 @@ async function migrateUser(user, stateStore) {
     return;
   }
   const name = user.name || email;
-  const passwordHash = user.passwordHash;
-
-  if (!passwordHash) {
-    console.warn(`Skipping ${email}: missing password hash.`);
-    return;
-  }
 
   const { data: existing } = await supabase.auth.admin.listUsers({ email });
   let authUser = existing?.users?.[0] ?? null;
@@ -111,13 +105,6 @@ async function migrateUser(user, stateStore) {
       },
       { onConflict: "id" },
     );
-
-  await supabase.from("user_credentials").upsert({
-    user_id: userId,
-    password_hash: passwordHash,
-    password_version: user.password_version ?? 0,
-    updated_at: new Date().toISOString(),
-  });
 
   await supabase.from("entitlements").update({ user_id: userId }).eq("email", email);
   await supabase.from("orders").update({ user_id: userId }).eq("email", email);

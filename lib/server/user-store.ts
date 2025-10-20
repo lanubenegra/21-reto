@@ -1,9 +1,11 @@
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeEmail } from "@/lib/email";
 import { emptyUserState } from "@/lib/user-state";
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 type StoredUser = {
   id: string;
@@ -12,14 +14,18 @@ type StoredUser = {
   createdAt: string;
 };
 
-const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-
 type ProfileRow = {
   id: string;
   display_name?: string | null;
   email: string;
   created_at?: string | null;
 };
+
+const supabaseAnon = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } }
+);
 
 function mapProfileToStoredUser(profile: ProfileRow): StoredUser {
   return {
@@ -40,8 +46,6 @@ export async function createUser(name: string, email: string, password: string) 
   if (existing) {
     throw new Error("Ya existe una cuenta con este correo electrónico.");
   }
-
-  const hashed = await bcrypt.hash(password, 12);
 
   const createRes = await supabaseAdmin.auth.admin.createUser({
     email: normalizedEmail,
@@ -73,13 +77,6 @@ export async function createUser(name: string, email: string, password: string) 
       { onConflict: "id" },
     );
 
-  await supabaseAdmin.from("user_credentials").upsert({
-    user_id: user.id,
-    password_hash: hashed,
-    password_version: 0,
-    updated_at: new Date().toISOString(),
-  });
-
   await supabaseAdmin.from("user_state").upsert({
     user_id: user.id,
     email: normalizedEmail,
@@ -99,32 +96,33 @@ export async function verifyUser(email: string, password: string) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return null;
 
-  const { data: profile, error } = await supabaseAdmin
+  const authRes = await supabaseAnon.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
+
+  if (authRes.error || !authRes.data.user) {
+    return null;
+  }
+
+  const userId = authRes.data.user.id;
+
+  const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("id, display_name, email, created_at")
-    .eq("email", normalizedEmail)
+    .eq("id", userId)
     .maybeSingle();
 
-  if (error || !profile?.id) {
-    return null;
+  if (profile) {
+    return mapProfileToStoredUser(profile as ProfileRow);
   }
 
-  const profileRow = profile as ProfileRow;
-
-  const { data: credential } = await supabaseAdmin
-    .from("user_credentials")
-    .select("password_hash")
-    .eq("user_id", profileRow.id)
-    .maybeSingle();
-
-  if (!credential?.password_hash) {
-    return null;
-  }
-
-  const isValid = await bcrypt.compare(password, credential.password_hash);
-  if (!isValid) return null;
-
-  return mapProfileToStoredUser(profileRow);
+  return {
+    id: userId,
+    name: authRes.data.user.user_metadata?.name ?? normalizedEmail,
+    email: normalizedEmail,
+    createdAt: authRes.data.user.created_at ?? new Date().toISOString(),
+  };
 }
 
 export async function getUserById(id: string) {
@@ -205,23 +203,6 @@ export async function consumeResetToken(token: string) {
 }
 
 export async function updatePassword(userId: string, newPassword: string) {
-  const hashed = await bcrypt.hash(newPassword, 12);
-
-  const { data: credential } = await supabaseAdmin
-    .from("user_credentials")
-    .select("password_version")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const nextVersion = (credential?.password_version ?? 0) + 1;
-
-  await supabaseAdmin.from("user_credentials").upsert({
-    user_id: userId,
-    password_hash: hashed,
-    password_version: nextVersion,
-    updated_at: new Date().toISOString(),
-  });
-
   await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
 }
 
