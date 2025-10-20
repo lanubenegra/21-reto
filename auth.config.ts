@@ -6,6 +6,11 @@ import AppleProvider from "next-auth/providers/apple";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyUser } from "@/lib/server/user-store";
 
+const baseUrl =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  process.env.NEXTAUTH_URL ||
+  "http://localhost:3000";
+
 const providers: AuthOptions["providers"] = [];
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -68,9 +73,26 @@ export const authOptions: AuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
+    async jwt({ token }) {
+      if (!token?.sub || token.role) return token;
+      try {
+        const res = await fetch(`${baseUrl}/api/me/role`, {
+          headers: { "x-nextauth-uid": token.sub },
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const { role } = await res.json();
+          token.role = typeof role === "string" ? role : "user";
+        }
+      } catch (error) {
+        console.warn("[auth] failed to load role for token", error);
+      }
+      return token;
+    },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? session.user.id;
+        session.user.role = token.role ?? "user";
       }
       return session;
     },

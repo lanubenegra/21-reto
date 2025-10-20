@@ -2,8 +2,10 @@ export const runtime = "nodejs";
 
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { createClient } from "@supabase/supabase-js";
+
+import { normalizeEmail } from "@/lib/email";
+import { enqueueAgendaGrant } from "@/lib/grant-agenda";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2024-06-20",
@@ -22,22 +24,6 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-const SHARED_SECRET = process.env.SHARED_SECRET!;
-const AGENDA_GRANT_URL = process.env.AGENDA_GRANT_URL || "";
-
-async function grantAgenda(email: string) {
-  if (!AGENDA_GRANT_URL) return;
-  const token = jwt.sign({ email, product: "agenda" }, SHARED_SECRET, {
-    expiresIn: "5m",
-    issuer: "retos",
-    audience: "grant",
-  });
-  await fetch(AGENDA_GRANT_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
-
 export async function POST(req: Request) {
   try {
     const signature = req.headers.get("stripe-signature") as string;
@@ -52,13 +38,15 @@ export async function POST(req: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const email =
+      const rawEmail =
         session.customer_details?.email ||
         session.customer_email ||
         (session.customer as string) ||
         "";
 
-      if (!email) {
+      const email = normalizeEmail(rawEmail);
+
+      if (!rawEmail) {
         console.error("[stripe webhook] missing email in session", session.id);
       }
 
@@ -66,7 +54,7 @@ export async function POST(req: Request) {
 
       const { error: orderError } = await supabase.from("orders").insert({
         user_id: null,
-        email,
+        email: rawEmail || email,
         sku,
         provider: "stripe",
         amount: session.amount_total ?? 0,
@@ -78,7 +66,7 @@ export async function POST(req: Request) {
         console.error("[stripe webhook] orders insert error", orderError.message);
       }
 
-      if (sku === "retos" || sku === "combo") {
+      if (email && (sku === "retos" || sku === "combo")) {
         const { error: retoError } = await supabase
           .from("entitlements")
           .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" });
@@ -86,14 +74,17 @@ export async function POST(req: Request) {
           console.error("[stripe webhook] entitlements retos error", retoError.message);
         }
       }
-      if (sku === "agenda" || sku === "combo") {
+      if (email && (sku === "agenda" || sku === "combo")) {
         const { error: agendaError } = await supabase
           .from("entitlements")
           .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" });
         if (agendaError) {
           console.error("[stripe webhook] entitlements agenda error", agendaError.message);
         }
-        await grantAgenda(email);
+        const granted = await enqueueAgendaGrant(supabase, email);
+        if (!granted) {
+          console.warn("[stripe webhook] agenda grant queued for retry", { email, session: session.id });
+        }
       }
 
       console.log("[stripe webhook] checkout.session.completed", { email, sku });

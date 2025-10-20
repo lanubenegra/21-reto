@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizeEmail } from "@/lib/email";
+import { enqueueAgendaGrant } from "@/lib/grant-agenda";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,7 +53,8 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 401 });
   }
 
-  const email = evt?.data?.transaction?.customer_email ?? null;
+  const rawEmail = evt?.data?.transaction?.customer_email ?? null;
+  const email = normalizeEmail(rawEmail);
   const ref = evt?.data?.transaction?.reference ?? "";
   const sku = /combo/i.test(ref) ? "combo" : /agenda/i.test(ref) ? "agenda" : "retos";
 
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
   const currency = evt?.data?.transaction?.currency ?? null;
 
   await supabaseAdmin.from("orders").insert({
-    email,
+    email: rawEmail || email,
     sku,
     provider: "wompi",
     status: "paid",
@@ -68,12 +71,28 @@ export async function POST(req: Request) {
     raw: evt,
   });
 
-  const products = sku === "combo" ? ["agenda", "retos"] : [sku];
-  await supabaseAdmin
-    .from("entitlements")
-    .upsert(
-      products.map((product) => ({ email, product, active: true })),
-      { onConflict: "email,product" }
-    );
+  if (email) {
+    const products = sku === "combo" ? ["agenda", "retos"] : [sku];
+    await supabaseAdmin
+      .from("entitlements")
+      .upsert(
+        products.map((product) => ({ email, product, active: true })),
+        { onConflict: "email,product" }
+      );
+
+    if (sku === "agenda" || sku === "combo") {
+      const granted = await enqueueAgendaGrant(supabaseAdmin, email);
+      if (!granted) {
+        console.warn("[wompi webhook] agenda grant queued for retry", {
+          email,
+          reference: ref,
+        });
+      }
+    }
+  } else {
+    console.warn("[wompi webhook] skipping entitlement grant due to missing email", {
+      reference: ref,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

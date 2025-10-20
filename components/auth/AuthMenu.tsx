@@ -2,11 +2,13 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export default function AuthMenu() {
   const { data: session, status } = useSession();
+  const role = (session?.user as any)?.role ?? "user";
+  const isAdmin = ["support", "admin", "superadmin"].includes(role);
 
   if (status === "loading") {
     return <div className="h-9 w-24 animate-pulse rounded-full bg-white/50" />;
@@ -31,6 +33,18 @@ export default function AuthMenu() {
         <User className="h-4 w-4" />
         <span className="max-w-[140px] truncate font-medium">{session.user.name ?? session.user.email}</span>
       </div>
+      {isAdmin && (
+        <Button
+          asChild
+          variant="secondary"
+          className="border-mana-primary/10 bg-mana-primary text-white hover:bg-mana-secondary"
+        >
+          <Link href="/admin">
+            <ShieldCheck className="mr-1 h-4 w-4" />
+            Panel
+          </Link>
+        </Button>
+      )}
       <Button variant="secondary" className="bg-mana-primary text-white hover:bg-mana-secondary" onClick={() => signOut()}>
         <LogOut className="mr-1 h-4 w-4" /> Salir
       </Button>
