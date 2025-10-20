@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { User, LogOut, ShieldCheck } from "lucide-react";
+import { User, LogOut, ShieldCheck, UserCog } from "lucide-react";
 import Link from "next/link";
 
 export default function AuthMenu() {
@@ -33,6 +33,16 @@ export default function AuthMenu() {
         <User className="h-4 w-4" />
         <span className="max-w-[140px] truncate font-medium">{session.user.name ?? session.user.email}</span>
       </div>
+      <Button
+        asChild
+        variant="secondary"
+        className="border-mana-primary/10 bg-white text-mana-primary hover:bg-mana-primary hover:text-white"
+      >
+        <Link href="/perfil">
+          <UserCog className="mr-1 h-4 w-4" />
+          Mi perfil
+        </Link>
+      </Button>
       {isAdmin && (
         <Button
           asChild
