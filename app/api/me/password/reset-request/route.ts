@@ -21,11 +21,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 });
   }
 
-  const { data: userData, error } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+  const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({ email });
   if (error) {
-    console.error("[password reset] getUserByEmail failed", error.message);
+    console.error("[password reset] listUsers failed", error.message);
   }
-  const user = userData?.user;
+  const user = usersData?.users?.[0] ?? null;
 
   if (!user) {
     // Do not leak info
