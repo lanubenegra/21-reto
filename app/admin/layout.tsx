@@ -16,7 +16,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/");
   }
 
-  const viewAs = cookies().get("admin_view_as")?.value ?? null;
+  const cookieStore = await cookies();
+  const viewAs = cookieStore.get("admin_view_as")?.value ?? null;
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
