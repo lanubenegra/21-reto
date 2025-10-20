@@ -15,6 +15,11 @@ export async function POST(req: Request) {
   const session = await requireSession();
   assertRole(session, ["support", "admin", "superadmin"]);
 
+  const actorId = session.user?.id;
+  if (!actorId) {
+    throw new Response("unauthorized", { status: 401 });
+  }
+
   const { email } = schema.parse(await req.json());
   const normalizedEmail = normalizeEmail(email);
 
@@ -25,7 +30,7 @@ export async function POST(req: Request) {
   await enqueueAgendaGrant(supabaseAdmin, normalizedEmail);
 
   await logAdminAction(
-    session.user.id as string,
+    actorId,
     "admin.regrant_agenda",
     {},
     { email: normalizedEmail },

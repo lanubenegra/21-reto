@@ -15,6 +15,11 @@ export async function POST(req: Request) {
   const session = await requireSession();
   assertRole(session, ["superadmin"]);
 
+  const actorId = session.user?.id;
+  if (!actorId) {
+    throw new Response("unauthorized", { status: 401 });
+  }
+
   const { userId, newPassword } = schema.parse(await req.json());
 
   const { data: credential } = await supabaseAdmin
@@ -38,7 +43,7 @@ export async function POST(req: Request) {
   }
 
   await logAdminAction(
-    session.user.id as string,
+    actorId,
     "admin.set_password",
     {},
     { userId },

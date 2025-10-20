@@ -14,11 +14,16 @@ export async function POST(req: Request) {
   const session = await requireSession();
   assertRole(session, ["superadmin"]);
 
+  const actorId = session.user?.id;
+  if (!actorId) {
+    throw new Response("unauthorized", { status: 401 });
+  }
+
   const { userId, role } = schema.parse(await req.json());
   const timestamp = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     role,
-    role_granted_by: session.user.id,
+    role_granted_by: actorId,
     role_granted_at: timestamp,
   };
 
@@ -33,7 +38,7 @@ export async function POST(req: Request) {
   }
 
   await logAdminAction(
-    session.user.id as string,
+    actorId,
     "admin.set_role",
     { role },
     { userId },

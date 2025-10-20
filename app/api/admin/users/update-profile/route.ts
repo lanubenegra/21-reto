@@ -18,6 +18,11 @@ export async function POST(req: Request) {
   const session = await requireSession();
   assertRole(session, ["admin", "superadmin"]);
 
+  const actorId = session.user?.id;
+  if (!actorId) {
+    throw new Response("unauthorized", { status: 401 });
+  }
+
   const payload = schema.parse(await req.json());
   const { userId, ...fields } = payload;
 
@@ -35,7 +40,7 @@ export async function POST(req: Request) {
   }
 
   await logAdminAction(
-    session.user.id as string,
+    actorId,
     "admin.update_profile",
     fields,
     { userId },

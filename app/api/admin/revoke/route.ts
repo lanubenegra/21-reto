@@ -15,6 +15,11 @@ export async function POST(req: Request) {
   const session = await requireSession();
   assertRole(session, ["admin", "superadmin"]);
 
+  const actorId = session.user?.id;
+  if (!actorId) {
+    throw new Response("unauthorized", { status: 401 });
+  }
+
   const { email, product } = schema.parse(await req.json());
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   await logAdminAction(
-    session.user.id as string,
+    actorId,
     "admin.revoke",
     { product },
     { email: normalizedEmail },
