@@ -14,8 +14,8 @@ export async function requireSession(): Promise<Session> {
 }
 
 export function assertRole(session: Session, allowed: AdminRole[]) {
-  const role = session.user?.role ?? "user";
-  if (!allowed.includes(role)) {
+  const role = (session.user?.role ?? "user") as string;
+  if (!allowed.some((allowedRole) => allowedRole === role)) {
     throw new Response("forbidden", { status: 403 });
   }
 }
