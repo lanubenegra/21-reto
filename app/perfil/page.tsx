@@ -12,10 +12,11 @@ export default async function PerfilPage() {
   }
 
   const supabase = await supabaseServer();
-  const userId = session.user?.id;
-  if (!userId) {
+  const user = session.user;
+  if (!user?.id) {
     redirect("/auth/signin?mode=login");
   }
+  const userId = user.id;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -23,7 +24,7 @@ export default async function PerfilPage() {
     .eq("id", userId)
     .maybeSingle();
 
-  const email = session.user.email ?? profile?.email ?? "";
+  const email = user.email ?? profile?.email ?? "";
 
   const { data: entitlementsData } = await supabase
     .from("entitlements")
