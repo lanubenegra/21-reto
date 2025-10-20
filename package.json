@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:users": "node scripts/migrate-json-users.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
