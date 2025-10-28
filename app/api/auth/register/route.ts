@@ -51,7 +51,11 @@ export async function POST(request: Request) {
         } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
       );
 
-      const actionLink = linkData?.properties?.action_link ?? (linkData as any)?.action_link;
+      const actionLink =
+        linkData?.properties?.action_link ??
+        (typeof (linkData as { action_link?: string }).action_link === "string"
+          ? (linkData as { action_link?: string }).action_link
+          : null);
 
       if (linkError || !actionLink) {
         console.error("[auth.register] failed to generate verification link for existing user", {
@@ -139,7 +143,11 @@ export async function POST(request: Request) {
     } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
   );
 
-  const actionLink = linkData?.properties?.action_link ?? (linkData as any)?.action_link;
+  const actionLink =
+    linkData?.properties?.action_link ??
+    (typeof (linkData as { action_link?: string }).action_link === "string"
+      ? (linkData as { action_link?: string }).action_link
+      : null);
 
   if (linkError || !actionLink) {
     console.error("[auth.register] failed to generate verification link", { email, error: linkError?.message });
