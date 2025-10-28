@@ -27,7 +27,7 @@ function buildFallbackText(label: string, merged: Data) {
     .map(([, value]) => value);
 
   candidates.forEach((value) => {
-    if (!lines.includes(value)) {
+    if (typeof value === "string" && !lines.includes(value)) {
       lines.push(value);
     }
   });
