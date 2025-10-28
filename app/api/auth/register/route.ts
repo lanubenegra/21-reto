@@ -43,11 +43,14 @@ export async function POST(request: Request) {
 
   if (existingUser) {
     if (!existingUser.email_confirmed_at) {
-      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "signup",
-        email,
-        options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
-      });
+      const { data: linkData, error: linkError } =
+        await supabaseAdmin.auth.admin.generateLink(
+          {
+            type: "signup",
+            email,
+            options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
+          } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+        );
 
       if (linkError || !linkData?.action_link) {
         console.error("[auth.register] failed to generate verification link for existing user", {
@@ -127,11 +130,13 @@ export async function POST(request: Request) {
     })
     .throwOnError();
 
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type: "signup",
-    email,
-    options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
-  });
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink(
+    {
+      type: "signup",
+      email,
+      options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
+    } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+  );
 
   if (linkError || !linkData?.action_link) {
     console.error("[auth.register] failed to generate verification link", { email, error: linkError?.message });
