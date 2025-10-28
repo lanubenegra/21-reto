@@ -88,6 +88,7 @@ export default function SignInPageClient() {
   const [formState, setFormState] = useState({ name: "", email: "", password: "", token: "", newPassword: "" });
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
 
   useEffect(() => {
     getProviders().then(setProviders);
@@ -105,6 +106,11 @@ export default function SignInPageClient() {
       setFormState(prev =>
         prev.token === tokenParam ? prev : { ...prev, token: tokenParam }
       );
+      const emailParam = searchParams.get("email");
+      if (emailParam) {
+        setFormState(prev => ({ ...prev, email: emailParam }));
+      }
+      setShowResetForm(true);
       setMessage("Ingresa tu nueva contraseña para completar el restablecimiento.");
     }
   }, [searchParams]);
@@ -454,25 +460,39 @@ export default function SignInPageClient() {
 
           {mode === "forgot" && (
             <div className="mt-6 space-y-5">
-              <form className="space-y-4" onSubmit={handleForgot}>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Correo</label>
-                  <input
-                    type="email"
-                    required
-                    value={formState.email}
-                    onChange={onInputChange("email")}
-                    className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                    placeholder="tu@email.com"
-                  />
+              {!showResetForm && (
+                <div className="space-y-4">
+                  <form className="space-y-4" onSubmit={handleForgot}>
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Correo</label>
+                      <input
+                        type="email"
+                        required
+                        value={formState.email}
+                        onChange={onInputChange("email")}
+                        className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
+                        placeholder="tu@email.com"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
+                      {pending ? "Enviando..." : "Enviar instrucciones"}
+                    </Button>
+                  </form>
+                  <button
+                    type="button"
+                    className="w-full rounded-[18px] border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
+                    onClick={() => {
+                      setShowResetForm(true);
+                      setMessage("Pega el token que recibiste y crea tu nueva contraseña.");
+                    }}
+                  >
+                    Ya tengo el token, crear nueva contraseña
+                  </button>
                 </div>
-                <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
-                  {pending ? "Enviando..." : "Enviar instrucciones"}
-                </Button>
-              </form>
-              <details className="rounded-[20px] bg-white/8 p-4 text-sm text-white/80">
-                <summary className="cursor-pointer text-white">¿Ya recibiste un token?</summary>
-                <form className="mt-3 space-y-3" onSubmit={handleReset}>
+              )}
+
+              {showResetForm && (
+                <form className="space-y-3 rounded-[20px] bg-white/8 p-4 text-sm text-white/80" onSubmit={handleReset}>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Token</label>
                     <input
@@ -498,8 +518,19 @@ export default function SignInPageClient() {
                   <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                     {pending ? "Actualizando..." : "Actualizar contraseña"}
                   </Button>
+                  <button
+                    type="button"
+                    className="w-full text-center text-xs text-white/70 underline"
+                    onClick={() => {
+                      setShowResetForm(false);
+                      setMessage(null);
+                    }}
+                  >
+                    Volver a solicitar el enlace
+                  </button>
                 </form>
-              </details>
+              )}
+
               <p className="text-xs text-white/75">
                 ¿Recordaste tu acceso?{" "}
                 <button type="button" className="text-white underline" onClick={() => setMode("login")}>
