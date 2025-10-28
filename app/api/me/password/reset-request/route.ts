@@ -4,7 +4,8 @@ import { z } from "zod";
 import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
 import { sendResetPasswordEmail } from "@/lib/email/notifications";
-import { createResetToken, getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
 
 export const runtime = "nodejs";
 
@@ -33,18 +34,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const tokenData = await createResetToken(email);
-  if (!tokenData) {
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink(
+    {
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${context.siteUrl}/auth/signin`,
+      },
+    } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+  );
+
+  const actionLink =
+    linkData?.properties?.action_link ??
+    (typeof (linkData as { action_link?: string }).action_link === "string"
+      ? (linkData as { action_link?: string }).action_link
+      : null);
+
+  if (linkError || !actionLink) {
+    console.error("[me.password.reset-request] generate link failed", { email, error: linkError?.message });
     return NextResponse.json({ ok: true });
   }
-
-  const resetUrl = `${context.resetUrlBase}&token=${tokenData.token}`;
 
   const delivered = await sendResetPasswordEmail(email, {
     email,
     name: profile?.display_name ?? user.user_metadata?.name ?? undefined,
-    resetUrl,
-    expiresAt: new Date(tokenData.expiresAt).toISOString(),
+    resetUrl: actionLink,
     supportEmail: context.supportEmail,
     siteUrl: context.siteUrl,
   });
