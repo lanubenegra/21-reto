@@ -19,19 +19,14 @@ export async function GET(req: Request) {
 
   const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/auth/signin`;
 
-  const { data, error } =
+  const params =
     type === "signup"
-      ? await supabaseAdmin.auth.admin.generateLink({
-          type: "signup",
-          email,
-          password: undefined,
-          options: { redirectTo },
-        })
-      : await supabaseAdmin.auth.admin.generateLink({
-          type: "recovery",
-          email,
-          options: { redirectTo },
-        });
+      ? ({ type: "signup", email, options: { redirectTo } } as const)
+      : ({ type: "recovery", email, options: { redirectTo } } as const);
+
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink(
+    params as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+  );
 
   if (error) {
     return NextResponse.json(
