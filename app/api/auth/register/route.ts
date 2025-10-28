@@ -6,6 +6,7 @@ import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
 import { sendVerifyEmail } from "@/lib/email/notifications";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
 
 const schema = z.object({
   name: z.string().min(2).max(80),
@@ -32,14 +33,9 @@ export async function POST(request: Request) {
 
   const context = defaultEmailContext(request);
 
-  const { data: existingList } = await supabaseAdmin.auth.admin.listUsers(
-    {
-      page: 1,
-      perPage: 1,
-      email,
-    } as Parameters<typeof supabaseAdmin.auth.admin.listUsers>[0],
-  );
-  const existingUser = existingList?.users?.[0] ?? null;
+  const existing = await getAuthUserWithProfileByEmail(email);
+  const existingUser = existing?.auth ?? null;
+  const existingProfile = existing?.profile ?? null;
 
   if (existingUser) {
     if (!existingUser.email_confirmed_at) {
@@ -70,7 +66,7 @@ export async function POST(request: Request) {
 
       const delivered = await sendVerifyEmail(email, {
         email,
-        name: displayName,
+        name: existingProfile?.display_name ?? existingUser.email ?? displayName,
         verificationUrl: actionLink,
         loginUrl: context.loginUrl,
         supportEmail: context.supportEmail,

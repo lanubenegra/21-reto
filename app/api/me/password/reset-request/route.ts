@@ -5,6 +5,7 @@ import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
 import { sendResetPasswordEmail } from "@/lib/email/notifications";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
 
 export const runtime = "nodejs";
 
@@ -26,15 +27,9 @@ export async function POST(req: Request) {
 
   const context = defaultEmailContext(req);
 
-  const { data: listed, error: listError } = await supabaseAdmin.auth.admin.listUsers(
-    { email } as Parameters<typeof supabaseAdmin.auth.admin.listUsers>[0],
-  );
-  if (listError) {
-    console.error("[me.password.reset-request] list users failed", { email, error: listError.message });
-    return NextResponse.json({ ok: true });
-  }
-
-  const user = listed?.users?.[0];
+  const existing = await getAuthUserWithProfileByEmail(email);
+  const user = existing?.auth ?? null;
+  const profile = existing?.profile ?? null;
   if (!user) {
     return NextResponse.json({ ok: true });
   }
@@ -62,7 +57,7 @@ export async function POST(req: Request) {
 
   const delivered = await sendResetPasswordEmail(email, {
     email,
-    name: user.user_metadata?.name ?? undefined,
+    name: profile?.display_name ?? user.user_metadata?.name ?? undefined,
     resetUrl: actionLink,
     supportEmail: context.supportEmail,
     siteUrl: context.siteUrl,

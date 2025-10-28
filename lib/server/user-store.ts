@@ -188,6 +188,31 @@ export async function getUserByEmail(email: string) {
   return profile ? mapProfileToStoredUser(profile as ProfileRow) : null;
 }
 
+export async function getAuthUserWithProfileByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id, display_name, email, created_at")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (!profile?.id) {
+    return null;
+  }
+
+  const { data: authData, error } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+  if (error || !authData?.user) {
+    return null;
+  }
+
+  return {
+    auth: authData.user,
+    profile: profile as ProfileRow,
+  };
+}
+
 export async function createResetToken(email: string) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return null;
