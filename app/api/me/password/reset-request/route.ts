@@ -39,15 +39,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: {
-      redirectTo: `${context.siteUrl}/auth/signin`,
-    },
-  });
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink(
+    {
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${context.siteUrl}/auth/signin`,
+      },
+    } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+  );
 
-  if (linkError || !linkData?.action_link) {
+  const actionLink =
+    linkData?.properties?.action_link ??
+    (typeof (linkData as { action_link?: string }).action_link === "string"
+      ? (linkData as { action_link?: string }).action_link
+      : null);
+
+  if (linkError || !actionLink) {
     console.error("[me.password.reset-request] generate link failed", { email, error: linkError?.message });
     return NextResponse.json({ ok: true });
   }
@@ -55,7 +63,7 @@ export async function POST(req: Request) {
   const delivered = await sendResetPasswordEmail(email, {
     email,
     name: user.user_metadata?.name ?? undefined,
-    resetUrl: linkData.action_link,
+    resetUrl: actionLink,
     supportEmail: context.supportEmail,
     siteUrl: context.siteUrl,
   });
