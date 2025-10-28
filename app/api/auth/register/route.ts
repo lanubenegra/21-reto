@@ -32,7 +32,11 @@ export async function POST(request: Request) {
 
   const context = defaultEmailContext(request);
 
-  const { data: existingList } = await supabaseAdmin.auth.admin.listUsers({ email });
+  const { data: existingList } = await supabaseAdmin.auth.admin.listUsers({
+    page: 1,
+    per_page: 1,
+    email,
+  });
   const existingUser = existingList?.users?.[0] ?? null;
 
   if (existingUser) {
