@@ -62,7 +62,7 @@ providers.push(
       if (!email || !password) return null;
 
       try {
-        const { data } = await supabaseAdmin.auth.admin.listUsers({ email });
+        const { data } = await supabaseAdmin.auth.admin.listUsers({ email } as Parameters<typeof supabaseAdmin.auth.admin.listUsers>[0]);
         const user = data?.users?.[0];
         if (!user?.id) return null;
         if (!user.email_confirmed_at) return null;
@@ -122,7 +122,7 @@ export const authOptions: AuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider && account.provider !== "credentials" && user?.email) {
         try {
-          const { data } = await supabaseAdmin.auth.admin.listUsers({ email: user.email.toLowerCase() });
+          const { data } = await supabaseAdmin.auth.admin.listUsers({ email: user.email.toLowerCase() } as Parameters<typeof supabaseAdmin.auth.admin.listUsers>[0]);
           const supabaseUser = data?.users?.[0];
           if (!supabaseUser?.email_confirmed_at) return false;
         } catch (error) {
