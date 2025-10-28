@@ -4,6 +4,8 @@ import { z } from "zod";
 import { assertRole, requireSession } from "@/lib/auth-roles";
 import { logAdminAction } from "@/lib/admin-log";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendRoleChangedEmail } from "@/lib/email/notifications";
 
 const schema = z.object({
   userId: z.string().uuid(),
@@ -20,6 +22,12 @@ export async function POST(req: Request) {
   }
 
   const { userId, role } = schema.parse(await req.json());
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, display_name")
+    .eq("id", userId)
+    .maybeSingle();
   const timestamp = new Date().toISOString();
   const updatePayload: Record<string, unknown> = {
     role,
@@ -44,6 +52,18 @@ export async function POST(req: Request) {
     { userId },
     req,
   );
+
+  const email = profile?.email;
+  if (email) {
+    const context = defaultEmailContext(req);
+    await sendRoleChangedEmail(email, {
+      email,
+      name: profile?.display_name ?? undefined,
+      role,
+      supportEmail: context.supportEmail,
+      actorId,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { grantAgenda } from "@/lib/grant-agenda";
 import { normalizeEmail } from "@/lib/email";
+import { sendGrantFailureAlert } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,12 @@ export async function GET() {
         })
         .eq("id", row.id);
       failed += 1;
+      await sendGrantFailureAlert({
+        targetEmail: row.email,
+        tries: nextTry,
+        stage: "cron",
+        error: "missing email",
+      });
       continue;
     }
 
@@ -77,6 +84,15 @@ export async function GET() {
         .eq("id", row.id);
       failed += 1;
       console.error("[agenda grant cron] grant failed", { email, message });
+      if (status === "error") {
+        await sendGrantFailureAlert({
+          email,
+          targetEmail: row.email,
+          tries: nextTry,
+          stage: "cron",
+          error: message,
+        });
+      }
     }
   }
 

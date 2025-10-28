@@ -113,6 +113,7 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
       const res = await fetch("/api/me/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -136,24 +137,31 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
       if (!currentPassword || !newPassword) {
         throw new Error("Completa ambos campos de contraseña.");
       }
+      if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+        throw new Error("La nueva contraseña debe tener al menos 10 caracteres, letras y números.");
+      }
       const res = await fetch("/api/me/password/change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        if (body?.error === "invalid_password") {
+        if (body?.error === "invalid_current_password") {
           throw new Error("La contraseña actual no es correcta.");
         }
-        if (body?.error === "no_password") {
-          throw new Error("Tu cuenta aún no tiene contraseña establecida.");
+        if (body?.error === "invalid_payload") {
+          throw new Error("Revisa los requisitos de la nueva contraseña.");
+        }
+        if (body?.error === "update_failed") {
+          throw new Error("No pudimos cambiar la contraseña en este momento.");
         }
         throw new Error(body?.error ?? "No se pudo cambiar la contraseña.");
       }
       setCurrentPassword("");
       setNewPassword("");
-      setPasswordMessage("Contraseña actualizada correctamente.");
+      setPasswordMessage("¡Contraseña cambiada! Por seguridad, cierra sesión y vuelve a entrar.");
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Error desconocido al cambiar la contraseña.");
     } finally {

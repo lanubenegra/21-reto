@@ -15,16 +15,43 @@ const schema = z.object({
   photo_url: z.string().url().optional(),
 });
 
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("display_name,country,whatsapp,timezone,photo_url")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  return NextResponse.json({ profile: data ?? {} });
+}
+
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const body = schema.parse(await req.json());
-  const { error } = await supabaseAdmin
-    .from("profiles")
-    .upsert({ id: session.user.id, ...body });
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
+
+  const body = parsed.data;
+  const updates = {
+    id: session.user.id,
+    display_name: body.display_name,
+    country: body.country?.trim().toUpperCase() || null,
+    whatsapp: body.whatsapp?.trim() || null,
+    timezone: body.timezone?.trim() || null,
+    photo_url: body.photo_url?.trim() || null,
+  };
+
+  const { error } = await supabaseAdmin.from("profiles").upsert(updates);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });

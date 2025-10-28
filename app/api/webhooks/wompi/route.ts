@@ -3,6 +3,13 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizeEmail } from "@/lib/email";
 import { enqueueAgendaGrant } from "@/lib/grant-agenda";
+import {
+  sendAgendaActivationEmail,
+  sendPaymentFailedEmail,
+  sendPaymentReceiptEmail,
+  sendWelcomeRetosEmail,
+} from "@/lib/email/notifications";
+import { defaultEmailContext } from "@/lib/email/context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +67,9 @@ export async function POST(req: Request) {
 
   const amount = evt?.data?.transaction?.amount_in_cents ?? 0;
   const currency = evt?.data?.transaction?.currency ?? null;
+  const status = evt?.data?.transaction?.status ?? null;
+
+  const context = defaultEmailContext(req);
 
   await supabaseAdmin.from("orders").insert({
     email: rawEmail || email,
@@ -73,14 +83,22 @@ export async function POST(req: Request) {
 
   if (email) {
     const products = sku === "combo" ? ["agenda", "retos"] : [sku];
-    await supabaseAdmin
+    const { error: entitlementError } = await supabaseAdmin
       .from("entitlements")
       .upsert(
         products.map((product) => ({ email, product, active: true })),
         { onConflict: "email,product" }
       );
+    if (entitlementError) {
+      console.error("[wompi webhook] entitlements upsert error", entitlementError.message);
+    }
 
-    if (sku === "agenda" || sku === "combo") {
+    let agendaActivated = false;
+    if (!entitlementError && products.includes("agenda")) {
+      agendaActivated = true;
+    }
+
+    if (products.includes("agenda")) {
       const granted = await enqueueAgendaGrant(supabaseAdmin, email);
       if (!granted) {
         console.warn("[wompi webhook] agenda grant queued for retry", {
@@ -88,6 +106,38 @@ export async function POST(req: Request) {
           reference: ref,
         });
       }
+    }
+
+    const emailPayload = {
+      email,
+      sku,
+      source: "wompi",
+      reference: ref,
+      amount: amount ? amount / 100 : null,
+      amountInCents: amount,
+      currency,
+      supportEmail: context.supportEmail,
+      status,
+    };
+
+    if (!entitlementError && products.includes("retos")) {
+      await sendWelcomeRetosEmail(email, emailPayload);
+    }
+    if (agendaActivated) {
+      await sendAgendaActivationEmail(email, emailPayload);
+    }
+
+    if (status?.toUpperCase() === "APPROVED") {
+      await sendPaymentReceiptEmail(email, {
+        ...emailPayload,
+        provider: "wompi",
+      });
+    } else if (status && status.toUpperCase() !== "APPROVED") {
+      await sendPaymentFailedEmail(email, {
+        ...emailPayload,
+        provider: "wompi",
+        reason: evt?.data?.transaction?.status_message ?? null,
+      });
     }
   } else {
     console.warn("[wompi webhook] skipping entitlement grant due to missing email", {

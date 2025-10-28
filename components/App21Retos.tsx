@@ -3811,12 +3811,7 @@ function BudgetPlanner({ budgetState, setBudgetState, onOpenReference }: BudgetP
           <Button variant="secondary" className="border border-mana-primary/20 text-mana-primary" onClick={reserveTithe}>
             Reservar 10&nbsp;% para Dios
           </Button>
-          <Link
-            href="https://devocionalmana.com/donaciones/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs font-medium text-mana-secondary underline underline-offset-4"
-          >
+          <Link href="/pago" className="text-xs font-medium text-mana-secondary underline underline-offset-4">
             Dar a la obra
           </Link>
         </div>
@@ -4067,7 +4062,28 @@ function JournalSection({ diary, setDiary }: JournalSectionProps) {
 function CommitmentSection({ signature, setSignature, setTab, setFinalAssess, areaScores }: CommitmentSectionProps) {
   const [phrase, setPhrase] = useState("Hoy decido servir a Cristo con todo mi corazón.");
   const [checked, setChecked] = useState<boolean>(!!signature);
-  function sign(){ setChecked(true); setSignature("signed"); setFinalAssess(areaScores); }
+  const [emailQueued, setEmailQueued] = useState(false);
+
+  function sign(){
+    setChecked(true);
+    setSignature("signed");
+    setFinalAssess(areaScores);
+
+    if (!emailQueued) {
+      setEmailQueued(true);
+      void fetch("/api/notifications/completion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          completedAt: new Date().toISOString(),
+          scores: areaScores,
+        }),
+      }).catch(error => {
+        console.warn("No fue posible notificar la finalización", error);
+        setEmailQueued(false);
+      });
+    }
+  }
 
   return (
     <div className="grid gap-6 md:grid-cols-2">

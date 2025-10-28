@@ -4,6 +4,8 @@ import crypto from "crypto";
 import { z } from "zod";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendPasswordResetSuccessEmail } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
 
@@ -53,6 +55,32 @@ export async function POST(req: Request) {
   }
 
   await supabaseAdmin.from("password_resets").update({ used: true }).eq("id", reset.id);
+
+  const { data: profileRow } = await supabaseAdmin
+    .from("profiles")
+    .select("email, display_name")
+    .eq("id", reset.user_id)
+    .maybeSingle();
+
+  const email = profileRow?.email ?? null;
+  if (email) {
+    const context = defaultEmailContext(req);
+    const notify = await sendPasswordResetSuccessEmail(email, {
+      email,
+      name: profileRow?.display_name ?? undefined,
+      changeDate: new Date().toISOString(),
+      loginUrl: context.loginUrl,
+      supportEmail: context.supportEmail,
+    });
+
+    if (!notify.ok) {
+      console.error("[me.password.reset-confirm] passwordResetSuccess email failed", {
+        email,
+        status: notify.status,
+        error: notify.error,
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

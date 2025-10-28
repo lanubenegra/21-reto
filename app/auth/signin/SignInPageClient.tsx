@@ -96,7 +96,25 @@ export default function SignInPageClient() {
   useEffect(() => {
     const param = (searchParams.get("mode") as Mode) ?? "login";
     setMode(param);
-    setMessage(null);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const tokenParam = searchParams.get("token");
+    if (tokenParam) {
+      setMode("forgot");
+      setFormState(prev =>
+        prev.token === tokenParam ? prev : { ...prev, token: tokenParam }
+      );
+      setMessage("Ingresa tu nueva contraseña para completar el restablecimiento.");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const verifiedParam = searchParams.get("verified");
+    if (verifiedParam === "1") {
+      setMode("login");
+      setMessage("¡Correo verificado! Inicia sesión para continuar.");
+    }
   }, [searchParams]);
 
   const oauthProviders = useMemo(() => {
@@ -121,26 +139,51 @@ export default function SignInPageClient() {
     if (result?.ok) {
       window.location.href = "/";
     } else {
-      setMessage("Correo o contraseña inválidos. Revisa tus datos e inténtalo de nuevo.");
+      setMessage("Correo o contraseña inválidos o sin verificar. Revisa tus datos o confirma tu correo.");
     }
   }
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setMessage(null);
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: formState.name, email: formState.email, password: formState.password }),
-    });
-    setPending(false);
-    if (response.ok) {
-      setMessage("Cuenta creada. Ya puedes iniciar sesión.");
-      setMode("login");
-    } else {
-      const data = await response.json();
-      setMessage(data.message ?? "No fue posible crear la cuenta.");
+    const trimmedName = formState.name.trim();
+    if (trimmedName.length < 2) {
+      setMessage("Ingresa tu nombre completo (2 caracteres o más).");
+      return;
+    }
+    if (
+      formState.password.length < 10 ||
+      !/[A-Za-z]/.test(formState.password) ||
+      !/\d/.test(formState.password)
+    ) {
+      setMessage("La contraseña debe tener al menos 10 caracteres, combinando letras y números.");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, email: formState.email, password: formState.password }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 201 || response.status === 202) {
+        setMessage(
+          data?.message ??
+            "Te enviamos un correo para confirmar tu cuenta. Revísalo antes de iniciar sesión."
+        );
+        setMode("login");
+        return;
+      }
+      if (response.ok) {
+        setMessage(data?.message ?? "Listo. Revisa tu correo para continuar.");
+        setMode("login");
+        return;
+      }
+      setMessage(data?.message ?? "No fue posible crear la cuenta.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -154,29 +197,44 @@ export default function SignInPageClient() {
       body: JSON.stringify({ email: formState.email }),
     });
     setPending(false);
-    setMessage(
-      response.ok
-        ? "Enviamos instrucciones a tu correo. (En esta demo también aparecerán en la consola)."
-        : (await response.json()).message ?? "No fue posible generar la solicitud"
-    );
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setMessage(
+        data?.message ??
+          "Enviamos instrucciones a tu correo. Revisa tu bandeja y sigue el enlace para restablecer."
+      );
+    } else {
+      setMessage(data?.message ?? "No fue posible generar la solicitud");
+    }
   }
 
   async function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setMessage(null);
-    const response = await fetch("/api/auth/reset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: formState.token, password: formState.newPassword }),
-    });
-    setPending(false);
-    if (response.ok) {
-      setMessage("Contraseña actualizada. Inicia sesión nuevamente.");
-      setMode("login");
-    } else {
-      const data = await response.json();
-      setMessage(data.message ?? "Token inválido o expirado.");
+    if (
+      formState.newPassword.length < 10 ||
+      !/[A-Za-z]/.test(formState.newPassword) ||
+      !/\d/.test(formState.newPassword)
+    ) {
+      setMessage("La nueva contraseña debe tener al menos 10 caracteres con letras y números.");
+      return;
+    }
+    setPending(true);
+    try {
+      const response = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: formState.token, password: formState.newPassword }),
+      });
+      if (response.ok) {
+        setMessage("Contraseña actualizada. Inicia sesión nuevamente.");
+        setMode("login");
+      } else {
+        const data = await response.json();
+        setMessage(data.message ?? "Token inválido o expirado.");
+      }
+    } finally {
+      setPending(false);
     }
   }
 
@@ -362,11 +420,11 @@ export default function SignInPageClient() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={10}
                     value={formState.password}
                     onChange={onInputChange("password")}
                     className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 10 caracteres (letras y números)"
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs text-white/75">
@@ -430,11 +488,11 @@ export default function SignInPageClient() {
                     <input
                       type="password"
                       required
-                      minLength={8}
+                      minLength={10}
                       value={formState.newPassword}
                       onChange={onInputChange("newPassword")}
                       className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder="Mínimo 10 caracteres"
                     />
                   </div>
                   <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>

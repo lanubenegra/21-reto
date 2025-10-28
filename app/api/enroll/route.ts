@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { supabaseServer } from '@/lib/supabase/server'
+import { defaultEmailContext } from '@/lib/email/context'
+import { sendPlanStartEmail } from '@/lib/email/notifications'
 
 const schema = z.object({ start_date: z.string().optional() })
 
@@ -19,5 +21,17 @@ export async function POST(req: Request) {
     .upsert({ id: user.id, program_start_date: date }, { onConflict: 'id' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  if (user.email) {
+    const context = defaultEmailContext(req)
+    await sendPlanStartEmail(user.email, {
+      email: user.email,
+      name: user.user_metadata?.name ?? user.email,
+      startDate: date,
+      siteUrl: context.siteUrl,
+      supportEmail: context.supportEmail,
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }

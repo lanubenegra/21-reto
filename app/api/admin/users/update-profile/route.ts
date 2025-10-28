@@ -4,6 +4,8 @@ import { z } from "zod";
 import { assertRole, requireSession } from "@/lib/auth-roles";
 import { logAdminAction } from "@/lib/admin-log";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendProfileUpdatedBySupportEmail } from "@/lib/email/notifications";
 
 const schema = z.object({
   userId: z.string().uuid(),
@@ -25,6 +27,12 @@ export async function POST(req: Request) {
 
   const payload = schema.parse(await req.json());
   const { userId, ...fields } = payload;
+
+  const { data: existingProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, display_name")
+    .eq("id", userId)
+    .maybeSingle();
 
   const updates: Record<string, string | null> = {};
   (Object.keys(fields) as Array<keyof typeof fields>).forEach((key) => {
@@ -59,6 +67,18 @@ export async function POST(req: Request) {
     { userId },
     req,
   );
+
+  const email = existingProfile?.email;
+  if (email && Object.keys(updates).length) {
+    const context = defaultEmailContext(req);
+    await sendProfileUpdatedBySupportEmail(email, {
+      email,
+      name: existingProfile?.display_name ?? undefined,
+      updatedFields: updates,
+      supportEmail: context.supportEmail,
+      actorId,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

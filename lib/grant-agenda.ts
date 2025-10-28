@@ -3,6 +3,7 @@ import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { normalizeEmail } from "@/lib/email";
+import { sendGrantFailureAlert } from "@/lib/email/notifications";
 
 type AgendaGrantConfig = {
   secret: string;
@@ -104,7 +105,12 @@ export async function enqueueAgendaGrant(
       })
       .eq("id", outboxRow.id);
     console.error("[agenda grant] immediate grant failed", message);
+    await sendGrantFailureAlert({
+      email: normalizedEmail,
+      tries,
+      stage: "immediate",
+      error: message,
+    });
     return false;
   }
 }
-

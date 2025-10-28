@@ -6,12 +6,14 @@ declare module "next-auth" {
       id?: string | null;
       role?: string | null;
     };
+    pv?: number;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     role?: string | null;
+    pv?: number | null;
   }
 }
 

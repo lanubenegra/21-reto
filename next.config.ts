@@ -22,22 +22,40 @@ const csp = [
   "connect-src 'self' *.supabase.co *.supabase.net api.stripe.com production.wompi.co sandbox.wompi.co",
 ].join("; ");
 
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: "/fonts/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: csp },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          ...securityHeaders,
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "Access-Control-Allow-Origin", value: "*" },
         ],
+      },
+      {
+        source: "/assets/:path*",
+        headers: [
+          ...securityHeaders,
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
       },
     ];
   },

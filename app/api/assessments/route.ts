@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { supabaseServer } from '@/lib/supabase/server'
+import { defaultEmailContext } from '@/lib/email/context'
+import { sendAssessmentSummaryEmail } from '@/lib/email/notifications'
 
 const schema = z.object({
   kind: z.enum(['initial', 'current', 'final']),
@@ -29,5 +31,18 @@ export async function POST(req: Request) {
     .upsert({ user_id: user.id, kind: body.kind, values: body.values }, { onConflict: 'user_id,kind' })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  if (user.email) {
+    const context = defaultEmailContext(req)
+    await sendAssessmentSummaryEmail(user.email, {
+      email: user.email,
+      name: user.user_metadata?.name ?? user.email,
+      kind: body.kind,
+      values: body.values,
+      supportEmail: context.supportEmail,
+      siteUrl: context.siteUrl,
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }

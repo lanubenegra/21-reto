@@ -5,6 +5,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { normalizeEmail } from "@/lib/email";
+import { defaultEmailContext } from "@/lib/email/context";
+import {
+  sendAgendaActivationEmail,
+  sendPaymentFailedEmail,
+  sendPaymentReceiptEmail,
+  sendWelcomeRetosEmail,
+} from "@/lib/email/notifications";
 import { enqueueAgendaGrant } from "@/lib/grant-agenda";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -25,6 +32,7 @@ const supabase = createClient(
 );
 
 export async function POST(req: Request) {
+  const context = defaultEmailContext(req);
   try {
     const signature = req.headers.get("stripe-signature") as string;
     const buffer = Buffer.from(await req.arrayBuffer());
@@ -72,26 +80,80 @@ export async function POST(req: Request) {
           .upsert({ email, product: "retos", active: true }, { onConflict: "email,product" });
         if (retoError) {
           console.error("[stripe webhook] entitlements retos error", retoError.message);
+        } else {
+          await sendWelcomeRetosEmail(email, {
+            email,
+            sku,
+            source: "stripe",
+            sessionId: session.id,
+            supportEmail: context.supportEmail,
+          });
         }
       }
       if (email && (sku === "agenda" || sku === "combo")) {
+        let agendaActivated = false;
         const { error: agendaError } = await supabase
           .from("entitlements")
           .upsert({ email, product: "agenda", active: true }, { onConflict: "email,product" });
         if (agendaError) {
           console.error("[stripe webhook] entitlements agenda error", agendaError.message);
+        } else {
+          agendaActivated = true;
         }
         const granted = await enqueueAgendaGrant(supabase, email);
         if (!granted) {
           console.warn("[stripe webhook] agenda grant queued for retry", { email, session: session.id });
         }
+        if (agendaActivated) {
+          await sendAgendaActivationEmail(email, {
+            email,
+            sku,
+            source: "stripe",
+            sessionId: session.id,
+            supportEmail: context.supportEmail,
+          });
+        }
+      }
+
+      if (email) {
+        await sendPaymentReceiptEmail(email, {
+          email,
+          sku,
+          provider: "stripe",
+          sessionId: session.id,
+          paymentIntent: session.payment_intent ?? null,
+          amount: session.amount_total ? session.amount_total / 100 : null,
+          amountCents: session.amount_total ?? null,
+          currency: session.currency ?? null,
+          supportEmail: context.supportEmail,
+        });
       }
 
       console.log("[stripe webhook] checkout.session.completed", { email, sku });
     }
 
-    if (event.type === "payment_intent.succeeded") {
-      console.log("[stripe webhook] payment_intent.succeeded");
+    if (event.type === "payment_intent.payment_failed") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const rawEmail =
+        paymentIntent.charges?.data?.[0]?.billing_details?.email ??
+        (paymentIntent.metadata?.email as string | undefined) ??
+        "";
+      const email = normalizeEmail(rawEmail);
+      const sku = (paymentIntent.metadata?.sku as "retos" | "agenda" | "combo" | undefined) ?? "retos";
+
+      if (email) {
+        await sendPaymentFailedEmail(email, {
+          email,
+          sku,
+          provider: "stripe",
+          paymentIntent: paymentIntent.id,
+          amount: paymentIntent.amount ? paymentIntent.amount / 100 : null,
+          amountCents: paymentIntent.amount ?? null,
+          currency: paymentIntent.currency ?? null,
+          reason: paymentIntent.last_payment_error?.message ?? null,
+          supportEmail: context.supportEmail,
+        });
+      }
     }
 
     return NextResponse.json({ received: true });

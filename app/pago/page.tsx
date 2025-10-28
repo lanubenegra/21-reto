@@ -153,8 +153,8 @@ export default function Pago() {
       }
     }
 
-    if (!isLoggedIn && form.password.trim().length < 6) {
-      setFeedback('Crea una contraseña con al menos 6 caracteres.')
+    if (!isLoggedIn && form.password.trim().length < 8) {
+      setFeedback('Crea una contraseña con al menos 8 caracteres.')
       return false
     }
 
@@ -178,14 +178,26 @@ export default function Pago() {
       body: JSON.stringify({ name: form.name, email, password: form.password }),
     })
 
+    const payload = (await registerResponse.json().catch(() => ({}))) as { message?: string }
+
+    if (registerResponse.status === 201 || registerResponse.status === 202) {
+      setFeedback(
+        payload?.message ??
+          'Te enviamos un correo para confirmar tu cuenta. Revísalo antes de continuar con la donación.'
+      )
+      return false
+    }
+
     if (!registerResponse.ok) {
-      const data = await registerResponse.json().catch(() => null)
-      const message = data?.message ?? 'No fue posible crear tu cuenta. Si ya tienes una, inicia sesión primero.'
+      const message =
+        payload?.message ?? 'No fue posible crear tu cuenta. Si ya tienes una, inicia sesión primero.'
       // Si la cuenta ya existe intentamos iniciar sesión con la contraseña ingresada.
       if (registerResponse.status === 409 || message.toLowerCase().includes('existe')) {
         const loginResult = await signIn('credentials', { email, password: form.password, redirect: false })
         if (loginResult?.error) {
-          setFeedback('El correo ya tiene una cuenta. Inicia sesión desde la sección Acceso o recupera tu contraseña.')
+          setFeedback(
+            'El correo ya tiene una cuenta. Confirma tu correo o inicia sesión desde la sección Acceso.'
+          )
           return false
         }
         return true

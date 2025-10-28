@@ -5,6 +5,8 @@ import { z } from "zod";
 import { assertRole, requireSession } from "@/lib/auth-roles";
 import { logAdminAction } from "@/lib/admin-log";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendSupportPasswordResetEmail } from "@/lib/email/notifications";
 
 const schema = z.object({
   userId: z.string().uuid(),
@@ -21,6 +23,12 @@ export async function POST(req: Request) {
   }
 
   const { userId, newPassword } = schema.parse(await req.json());
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, display_name")
+    .eq("id", userId)
+    .maybeSingle();
 
   const { data: credential } = await supabaseAdmin
     .from("user_credentials")
@@ -49,6 +57,26 @@ export async function POST(req: Request) {
     { userId },
     req,
   );
+
+  const email = profile?.email;
+  if (email) {
+    const context = defaultEmailContext(req);
+    const notify = await sendSupportPasswordResetEmail(email, {
+      email,
+      name: profile?.display_name ?? undefined,
+      changeDate: new Date().toISOString(),
+      supportEmail: context.supportEmail,
+      actorId,
+    });
+
+    if (!notify.ok) {
+      console.error("[admin.users.set-password] supportPasswordReset email failed", {
+        email,
+        status: notify.status,
+        error: notify.error,
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

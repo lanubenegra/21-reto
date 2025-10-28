@@ -1,5 +1,6 @@
-import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeEmail } from "@/lib/email";
@@ -36,7 +37,12 @@ function mapProfileToStoredUser(profile: ProfileRow): StoredUser {
   };
 }
 
-export async function createUser(name: string, email: string, password: string) {
+export async function createUser(
+  name: string,
+  email: string,
+  password: string,
+  options?: { redirectTo?: string }
+) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
     throw new Error("Correo inválido.");
@@ -50,7 +56,7 @@ export async function createUser(name: string, email: string, password: string) 
   const createRes = await supabaseAdmin.auth.admin.createUser({
     email: normalizedEmail,
     password,
-    email_confirm: true,
+    email_confirm: false,
     user_metadata: { name },
   });
 
@@ -84,11 +90,35 @@ export async function createUser(name: string, email: string, password: string) 
     updated_at: new Date().toISOString(),
   });
 
+  let verificationUrl: string | null = null;
+  try {
+    const response = options?.redirectTo
+      ? await supabaseAdmin.auth.admin.generateLink({
+          type: "signup",
+          email: normalizedEmail,
+          password,
+          options: { redirectTo: options.redirectTo },
+        })
+      : await supabaseAdmin.auth.admin.generateLink({
+          type: "signup",
+          email: normalizedEmail,
+          password,
+        });
+    if (response.error) {
+      console.error("[auth] generate verify link error", response.error.message);
+    } else {
+      verificationUrl = response.data?.properties?.action_link ?? null;
+    }
+  } catch (error) {
+    console.error("[auth] generate verify link exception", error);
+  }
+
   return {
     id: user.id,
     name: displayName,
     email: normalizedEmail,
     createdAt: user.created_at ?? new Date().toISOString(),
+    verificationUrl,
   };
 }
 
@@ -102,6 +132,16 @@ export async function verifyUser(email: string, password: string) {
   });
 
   if (authRes.error || !authRes.data.user) {
+    return null;
+  }
+
+  const confirmedAt =
+    authRes.data.user.email_confirmed_at ??
+    authRes.data.user.confirmed_at ??
+    null;
+  if (!confirmedAt) {
+    // Supabase permitió el login aunque no esté verificado; cerramos sesión y negamos.
+    await supabaseAnon.auth.signOut();
     return null;
   }
 
@@ -204,6 +244,22 @@ export async function consumeResetToken(token: string) {
 
 export async function updatePassword(userId: string, newPassword: string) {
   await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
+
+  const { data: credential } = await supabaseAdmin
+    .from("user_credentials")
+    .select("password_version")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  const nextVersion = (credential?.password_version ?? 0) + 1;
+
+  await supabaseAdmin.from("user_credentials").upsert({
+    user_id: userId,
+    password_hash: newHash,
+    password_version: nextVersion,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 export type { StoredUser };

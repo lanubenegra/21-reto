@@ -1,20 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+
+import authOptions from "@/auth.config";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const revalidate = 0;
 
-export async function GET(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+export async function GET() {
+  const session = await getServerSession(authOptions);
 
-  return NextResponse.json(
-    {
-      hasToken: Boolean(token),
-      email: token?.email ?? null,
-      name: token?.name ?? null,
-      sub: token?.sub ?? null,
-    },
-    { headers: { "cache-control": "no-store" } }
-  );
+  return NextResponse.json({
+    ok: true,
+    session: session
+      ? {
+          id: session.user?.id ?? null,
+          email: session.user?.email ?? null,
+          role: session.user?.role ?? null,
+        }
+      : null,
+  });
 }

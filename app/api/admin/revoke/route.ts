@@ -5,6 +5,8 @@ import { assertRole, requireSession } from "@/lib/auth-roles";
 import { normalizeEmail } from "@/lib/email";
 import { logAdminAction } from "@/lib/admin-log";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendLicenseRevokedEmail } from "@/lib/email/notifications";
 
 const schema = z.object({
   email: z.string().email(),
@@ -43,6 +45,14 @@ export async function POST(req: Request) {
     { email: normalizedEmail },
     req,
   );
+
+  const context = defaultEmailContext(req);
+  await sendLicenseRevokedEmail(normalizedEmail, {
+    email: normalizedEmail,
+    product,
+    actorId,
+    supportEmail: context.supportEmail,
+  });
 
   return NextResponse.json({ ok: true });
 }

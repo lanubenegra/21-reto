@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 import { z } from "zod";
 
+import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
+import { sendResetPasswordEmail } from "@/lib/email/notifications";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -11,51 +12,56 @@ const schema = z.object({
   email: z.string().email(),
 });
 
-const RESET_TTL_MS = 1000 * 60 * 60; // 1 hour
-
 export async function POST(req: Request) {
-  const body = schema.parse(await req.json());
-  const email = normalizeEmail(body.email);
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_email" }, { status: 400 });
+  }
+
+  const email = normalizeEmail(parsed.data.email);
 
   if (!email) {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 });
   }
 
-  const { data: profile, error } = await supabaseAdmin
-    .from("profiles")
-    .select("id, email")
-    .eq("email", email)
-    .maybeSingle();
-  if (error) {
-    console.error("[password reset] profile query failed", error.message);
-  }
-  const user = profile ? { id: profile.id, email: profile.email } : null;
+  const context = defaultEmailContext(req);
 
-  if (!user) {
-    // Do not leak info
+  const { data: listed, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email });
+  if (listError) {
+    console.error("[me.password.reset-request] list users failed", { email, error: listError.message });
     return NextResponse.json({ ok: true });
   }
 
-  await supabaseAdmin
-    .from("password_resets")
-    .update({ used: true })
-    .eq("user_id", user.id);
-
-  const token = crypto.randomBytes(24).toString("hex");
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const expiresAt = new Date(Date.now() + RESET_TTL_MS).toISOString();
-
-  const { error: insertError } = await supabaseAdmin.from("password_resets").insert({
-    user_id: user.id,
-    token_hash: tokenHash,
-    expires_at: expiresAt,
-    used: false,
-  });
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+  const user = listed?.users?.[0];
+  if (!user) {
+    return NextResponse.json({ ok: true });
   }
 
-  // TODO: send email with token
-  return NextResponse.json({ ok: true, token });
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo: `${context.siteUrl}/auth/signin`,
+    },
+  });
+
+  if (linkError || !linkData?.action_link) {
+    console.error("[me.password.reset-request] generate link failed", { email, error: linkError?.message });
+    return NextResponse.json({ ok: true });
+  }
+
+  const delivered = await sendResetPasswordEmail(email, {
+    email,
+    name: user.user_metadata?.name ?? undefined,
+    resetUrl: linkData.action_link,
+    supportEmail: context.supportEmail,
+    siteUrl: context.siteUrl,
+  });
+
+  if (!delivered.ok) {
+    console.error("[me.password.reset-request] send failed", { email, status: delivered.status, error: delivered.error });
+    return NextResponse.json({ error: "delivery_failed" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
