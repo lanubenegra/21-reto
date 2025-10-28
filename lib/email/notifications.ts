@@ -136,7 +136,7 @@ export const sendResetPasswordEmail = (to: string, data: Data) =>
     to,
     templateKey: "resetPassword",
     data: {
-      subject: "Recupera tu acceso a Devocional Maná",
+      subject: "🔐 Recupera tu acceso a Devocional Maná",
       preheader: "Generamos un enlace seguro para que restablezcas tu contraseña.",
       tag: "Seguridad",
       ...data,
