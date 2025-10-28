@@ -134,8 +134,12 @@ export async function POST(req: Request) {
 
     if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const chargesSource = paymentIntent as Stripe.PaymentIntent & {
+        charges?: Stripe.ApiList<Stripe.Charge>;
+      };
+      const charge = chargesSource.charges?.data?.[0];
       const rawEmail =
-        paymentIntent.charges?.data?.[0]?.billing_details?.email ??
+        charge?.billing_details?.email ??
         (paymentIntent.metadata?.email as string | undefined) ??
         "";
       const email = normalizeEmail(rawEmail);
