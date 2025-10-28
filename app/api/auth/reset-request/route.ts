@@ -23,7 +23,9 @@ export async function POST(request: Request) {
 
   const context = defaultEmailContext(request);
 
-  const { data: listed, error: listError } = await supabaseAdmin.auth.admin.listUsers({ email });
+  const { data: listed, error: listError } = await supabaseAdmin.auth.admin.listUsers(
+    { email } as Parameters<typeof supabaseAdmin.auth.admin.listUsers>[0],
+  );
   if (listError) {
     console.error("[auth.reset-request] list users failed", { email, error: listError.message });
     return NextResponse.json({ ok: true }, { status: 200 });
