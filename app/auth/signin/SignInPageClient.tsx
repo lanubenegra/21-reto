@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { signIn, getProviders, type ClientSafeProvider } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -89,6 +89,7 @@ export default function SignInPageClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
+  const processedHash = useRef(false);
 
   useEffect(() => {
     getProviders().then(setProviders);
@@ -98,6 +99,34 @@ export default function SignInPageClient() {
     const param = (searchParams.get("mode") as Mode) ?? "login";
     setMode(param);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (processedHash.current) return;
+    if (typeof window === "undefined") return;
+    const rawHash = window.location.hash;
+    if (!rawHash || rawHash.length <= 1) return;
+    const hashParams = new URLSearchParams(rawHash.slice(1));
+    const typeParam = hashParams.get("type");
+    const tokenParam = hashParams.get("access_token");
+    if (typeParam !== "recovery" || !tokenParam) return;
+
+    processedHash.current = true;
+    setMode("forgot");
+    setShowResetForm(true);
+    setFormState(prev => ({
+      ...prev,
+      token: tokenParam,
+      email:
+        hashParams.get("email") ??
+        new URL(window.location.href).searchParams.get("email") ??
+        prev.email,
+    }));
+    setMessage("Ingresa tu nueva contraseña para completar el restablecimiento.");
+
+    const url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(null, "", url.toString());
+  }, []);
 
   useEffect(() => {
     const tokenParam = searchParams.get("token");
