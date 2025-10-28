@@ -43,16 +43,17 @@ export async function POST(request: Request) {
 
   if (existingUser) {
     if (!existingUser.email_confirmed_at) {
-      const { data: linkData, error: linkError } =
-        await supabaseAdmin.auth.admin.generateLink(
-          {
-            type: "signup",
-            email,
-            options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
-          } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
-        );
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink(
+        {
+          type: "signup",
+          email,
+          options: { redirectTo: `${context.siteUrl}/auth/signin?verified=1` },
+        } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
+      );
 
-      if (linkError || !linkData?.action_link) {
+      const actionLink = linkData?.properties?.action_link ?? (linkData as any)?.action_link;
+
+      if (linkError || !actionLink) {
         console.error("[auth.register] failed to generate verification link for existing user", {
           email,
           error: linkError?.message,
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       const delivered = await sendVerifyEmail(email, {
         email,
         name: displayName,
-        verificationUrl: linkData.action_link,
+        verificationUrl: actionLink,
         loginUrl: context.loginUrl,
         supportEmail: context.supportEmail,
         siteUrl: context.siteUrl,
@@ -138,7 +139,9 @@ export async function POST(request: Request) {
     } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
   );
 
-  if (linkError || !linkData?.action_link) {
+  const actionLink = linkData?.properties?.action_link ?? (linkData as any)?.action_link;
+
+  if (linkError || !actionLink) {
     console.error("[auth.register] failed to generate verification link", { email, error: linkError?.message });
     return NextResponse.json(
       { message: "No pudimos generar el enlace de verificación. Intenta más tarde." },
@@ -149,7 +152,7 @@ export async function POST(request: Request) {
   const delivered = await sendVerifyEmail(email, {
     email,
     name: displayName,
-    verificationUrl: linkData.action_link,
+    verificationUrl: actionLink,
     loginUrl: context.loginUrl,
     supportEmail: context.supportEmail,
     siteUrl: context.siteUrl,
