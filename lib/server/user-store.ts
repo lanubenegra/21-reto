@@ -228,9 +228,6 @@ export async function createResetToken(email: string) {
   }
 
   const token = crypto.randomUUID().replace(/-/g, "");
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
-
   return { token, expiresAt: Date.now() + RESET_TOKEN_TTL_MS };
 }
 

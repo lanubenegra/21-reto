@@ -52,8 +52,12 @@ export async function POST(request: Request) {
 
   console.info("[auth.reset.v2] start", { requestId });
 
-  if (!token || !password) {
-    console.warn("[auth.reset.v2] invalid payload", { requestId, hasToken: Boolean(token), hasPassword: Boolean(password) });
+  if (!token || typeof password !== "string") {
+    console.warn("[auth.reset.v2] invalid payload", {
+      requestId,
+      hasToken: Boolean(token),
+      hasPassword: typeof password === "string",
+    });
     return NextResponse.json({ message: "Datos incompletos" }, { status: 400, headers: responseHeaders });
   }
 
