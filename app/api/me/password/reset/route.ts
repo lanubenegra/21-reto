@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   const safePassword = password!;
 
   if (!isStrongPassword(safePassword)) {
-    console.warn("[auth.reset.v2] weak password", { requestId, length: safePassword.length });
+    console.warn("[auth.reset.v2] weak password", { requestId });
     return NextResponse.json(WEAK_PASSWORD_ERROR, { status: 400, headers: responseHeaders });
   }
 
