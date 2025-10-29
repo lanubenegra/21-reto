@@ -61,8 +61,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Datos incompletos" }, { status: 400, headers: responseHeaders });
   }
 
-  if (!isStrongPassword(password)) {
-    console.warn("[auth.reset.v2] weak password", { requestId, length: password.length });
+  const safePassword = password as string;
+
+  if (!isStrongPassword(safePassword)) {
+    console.warn("[auth.reset.v2] weak password", { requestId, length: safePassword.length });
     return NextResponse.json(WEAK_PASSWORD_ERROR, { status: 400, headers: responseHeaders });
   }
 
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await updatePassword(userId, password);
+    await updatePassword(userId, safePassword);
   } catch (error) {
     console.error("[auth.reset.v2] update password failed", {
       requestId,
