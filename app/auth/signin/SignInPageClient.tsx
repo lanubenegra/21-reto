@@ -256,7 +256,7 @@ export default function SignInPageClient() {
     }
     setPending(true);
     try {
-      const response = await fetch("/api/auth/reset", {
+      const response = await fetch("/api/me/password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: formState.token, password: formState.newPassword }),

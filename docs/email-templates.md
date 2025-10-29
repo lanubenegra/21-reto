@@ -23,7 +23,7 @@ Además cada helper define `subject`, `preheader` y `tag` adecuados al caso; los
 | `SENDGRID_TEMPLATE_VERIFY_EMAIL` | Nuevo registro o reenvío de verificación (`app/api/auth/register/route.ts`) | `name`, `email`, `verificationUrl`, `loginUrl`, `supportEmail`, `siteUrl` |
 | `SENDGRID_TEMPLATE_SIGNUP_WELCOME` | *(reservado)* Actualmente no se envía automáticamente; se puede reutilizar después de la verificación si se desea. |
 | `SENDGRID_TEMPLATE_RESET_PASSWORD` | Solicitud de reseteo (`/api/auth/reset-request`, `/api/me/password/reset-request`) | `email`, `name?`, `resetUrl`, `expiresAt`, `supportEmail`, `siteUrl` |
-| `SENDGRID_TEMPLATE_RESET_SUCCESS` | Contraseña restablecida (`/api/auth/reset`, `/api/me/password/reset-confirm`) | `email`, `name?`, `changeDate`, `loginUrl`, `supportEmail` |
+| `SENDGRID_TEMPLATE_RESET_SUCCESS` | Contraseña restablecida (`/api/me/password/reset`, `/api/me/password/reset-confirm`) | `email`, `name?`, `changeDate`, `loginUrl`, `supportEmail` |
 | `SENDGRID_TEMPLATE_PASSWORD_CHANGED` | Cambio manual de contraseña (`/api/me/password/change`) | `email`, `changeDate`, `supportEmail`, `siteUrl` |
 | `SENDGRID_TEMPLATE_SUPPORT_PASSWORD_RESET` | Reset forzado por soporte (`/api/admin/users/set-password`) | `email`, `name?`, `changeDate`, `supportEmail`, `actorId` |
 | `SENDGRID_TEMPLATE_PROFILE_UPDATED_BY_SUPPORT` | Soporte actualiza perfil (`/api/admin/users/update-profile`) | `email`, `name?`, `updatedFields`, `supportEmail`, `actorId` |
