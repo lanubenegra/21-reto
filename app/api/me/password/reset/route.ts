@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Datos incompletos" }, { status: 400, headers: responseHeaders });
   }
 
-  const safePassword = password as string;
+  const safePassword = password!;
 
   if (!isStrongPassword(safePassword)) {
     console.warn("[auth.reset.v2] weak password", { requestId, length: safePassword.length });
