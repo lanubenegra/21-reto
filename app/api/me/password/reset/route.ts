@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { updatePassword } from "@/lib/server/user-store";
+import { defaultEmailContext } from "@/lib/email/context";
+import { sendPasswordResetSuccessEmail } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
 
@@ -101,6 +103,33 @@ export async function POST(request: Request) {
       error: (error as Error).message,
     });
     return NextResponse.json({ message: "No pudimos actualizar la contraseña. Intenta más tarde." }, { status: 500, headers: responseHeaders });
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("email, display_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const email = profile?.email ?? data.user?.email ?? null;
+  if (email) {
+    const context = defaultEmailContext(request);
+    const notify = await sendPasswordResetSuccessEmail(email, {
+      email,
+      name: profile?.display_name ?? undefined,
+      changeDate: new Date().toISOString(),
+      loginUrl: context.loginUrl,
+      supportEmail: context.supportEmail,
+    });
+
+    if (!notify.ok) {
+      console.error("[auth.reset.v2] password reset email failed", {
+        requestId,
+        email,
+        status: notify.status,
+        error: notify.error,
+      });
+    }
   }
 
   console.info("[auth.reset.v2] password updated", { requestId, userId });
