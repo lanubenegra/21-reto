@@ -10,7 +10,25 @@ import { supabaseAnon } from "@/lib/supabase-anon";
 import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { rateLimit } from "@/lib/server/rate-limit";
-import { getClientIp } from "@/lib/server/request";
+
+type CredentialRequest = {
+  headers?: Headers | Record<string, string | string[] | undefined>;
+};
+
+function extractClientIp(req: CredentialRequest | undefined) {
+  if (!req?.headers) return "unknown";
+
+  let raw: string | undefined | null;
+  if (req.headers instanceof Headers) {
+    raw = req.headers.get("x-forwarded-for");
+  } else {
+    const value = req.headers["x-forwarded-for"];
+    raw = Array.isArray(value) ? value[0] : value ?? undefined;
+  }
+
+  if (!raw) return "unknown";
+  return raw.split(",")[0]?.trim() || "unknown";
+}
 
 const providers: AuthOptions["providers"] = [];
 
@@ -62,9 +80,7 @@ providers.push(
         throw new Error("captcha_failed");
       }
 
-      const ip =
-        (req?.headers?.get && getClientIp({ headers: req.headers })) ||
-        "unknown";
+      const ip = extractClientIp(req as CredentialRequest);
       if (!rateLimit(`login:${ip}:${email}`, 10, 60_000)) {
         throw new Error("rate_limited");
       }
