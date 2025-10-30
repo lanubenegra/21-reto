@@ -13,12 +13,13 @@ const csp = [
     "'unsafe-inline'",
     "js.stripe.com",
     "checkout.wompi.co",
+    "challenges.cloudflare.com",
     "www.youtube.com",
     "www.youtube-nocookie.com",
   ]
     .filter(Boolean)
     .join(" "),
-  "frame-src 'self' js.stripe.com checkout.stripe.com checkout.wompi.co www.youtube.com www.youtube-nocookie.com",
+  "frame-src 'self' js.stripe.com checkout.stripe.com checkout.wompi.co challenges.cloudflare.com www.youtube.com www.youtube-nocookie.com",
   "connect-src 'self' *.supabase.co *.supabase.net api.stripe.com production.wompi.co sandbox.wompi.co",
 ].join("; ");
 
