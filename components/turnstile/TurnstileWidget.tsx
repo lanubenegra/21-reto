@@ -15,39 +15,46 @@ export function TurnstileWidget({ action, onToken, className }: Props) {
 
   useEffect(() => {
     if (!siteKey) return;
+    let cancelled = false;
 
     const renderWidget = () => {
-      if (!containerRef.current || !window.turnstile) return;
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        action,
-        theme: "auto",
-        callback: token => onToken(token ?? null),
-        "error-callback": () => onToken(null),
-        "expired-callback": () => onToken(null),
-      });
+      if (cancelled || !containerRef.current || !window.turnstile) return;
+      try {
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          action,
+          theme: "auto",
+          callback: token => onToken(token ?? null),
+          "error-callback": () => onToken(null),
+          "expired-callback": () => onToken(null),
+        });
+      } catch (error) {
+        console.error("[turnstile] render failed", error);
+      }
     };
 
-    const ensureScript = () => {
+    const existingScript = document.querySelector<HTMLScriptElement>("script[data-turnstile]");
+    if (existingScript) {
       if (window.turnstile) {
         renderWidget();
-        return;
+      } else {
+        existingScript.addEventListener("load", renderWidget, { once: true });
       }
-      window.__turnstile_onload__ = renderWidget;
-
-      if (!document.querySelector("script[data-turnstile]")) {
-        const script = document.createElement("script");
-        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-        script.async = true;
-        script.defer = true;
-        script.dataset.turnstile = "true";
-        document.head.appendChild(script);
-      }
-    };
-
-    ensureScript();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.dataset.turnstile = "true";
+      script.onload = renderWidget;
+      script.onerror = () => {
+        console.error("[turnstile] script failed to load");
+      };
+      document.head.appendChild(script);
+    }
 
     return () => {
+      cancelled = true;
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
       }
