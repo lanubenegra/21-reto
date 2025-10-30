@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { consumeResetToken, updatePassword } from "@/lib/server/user-store";
 import { defaultEmailContext } from "@/lib/email/context";
 import { sendPasswordResetSuccessEmail } from "@/lib/email/notifications";
+import { getClientIp } from "@/lib/server/request";
+import { rateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -63,6 +65,11 @@ export async function POST(request: Request) {
   }
 
   const safePassword = password!;
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`reset-final:${ip}`, 5, 60_000)) {
+    return NextResponse.json({ message: "Intenta de nuevo en un minuto." }, { status: 429, headers: responseHeaders });
+  }
 
   if (!isStrongPassword(safePassword)) {
     console.warn("[auth.reset.v2] weak password", { requestId });

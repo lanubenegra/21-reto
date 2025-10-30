@@ -2,13 +2,15 @@ import type { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { supabaseAnon } from "@/lib/supabase-anon";
 import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
+import { verifyTurnstile } from "@/lib/server/turnstile";
+import { rateLimit } from "@/lib/server/rate-limit";
+import { getClientIp } from "@/lib/server/request";
 
 const providers: AuthOptions["providers"] = [];
 
@@ -26,16 +28,7 @@ if (process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET) {
     AzureADProvider({
       clientId: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      tenantId: process.env.MICROSOFT_TENANT_ID,
-    })
-  );
-}
-
-if (process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET) {
-  providers.push(
-    AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID,
-      clientSecret: process.env.APPLE_CLIENT_SECRET,
+      tenantId: process.env.MICROSOFT_TENANT_ID ?? "common",
     })
   );
 }
@@ -56,17 +49,33 @@ providers.push(
     credentials: {
       email: { label: "Correo", type: "email", placeholder: "tu@email.com" },
       password: { label: "Contraseña", type: "password" },
+      cfToken: { label: "Turnstile", type: "text" },
     },
-    async authorize(credentials) {
+    async authorize(credentials, req) {
       const email = credentials?.email?.trim().toLowerCase() ?? "";
       const password = credentials?.password ?? "";
       if (!email || !password) return null;
+
+      const captchaOk = await verifyTurnstile(credentials?.cfToken);
+      if (!captchaOk) {
+        console.warn("[auth] turnstile failed", { email });
+        throw new Error("captcha_failed");
+      }
+
+      const ip =
+        (req?.headers?.get && getClientIp({ headers: req.headers })) ||
+        "unknown";
+      if (!rateLimit(`login:${ip}:${email}`, 10, 60_000)) {
+        throw new Error("rate_limited");
+      }
 
       try {
         const existing = await getAuthUserWithProfileByEmail(email);
         const user = existing?.auth;
         if (!user?.id) return null;
-        if (!user.email_confirmed_at) return null;
+        if (!user.email_confirmed_at) {
+          throw new Error("email_not_confirmed");
+        }
 
         const { data: credential } = await supabaseAdmin
           .from("user_credentials")
@@ -91,7 +100,9 @@ providers.push(
 
         const supabaseUser = authData.user;
         const confirmedAt = supabaseUser.email_confirmed_at ?? supabaseUser.confirmed_at;
-        if (!confirmedAt) return null;
+        if (!confirmedAt) {
+          throw new Error("email_not_confirmed");
+        }
 
         const supabaseId = supabaseUser.id;
         const newHash = await bcrypt.hash(password, 12);

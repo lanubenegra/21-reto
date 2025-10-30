@@ -1,94 +1,50 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 
-import authOptions from "@/auth.config";
-import { defaultEmailContext } from "@/lib/email/context";
-import { sendPasswordChangedEmail } from "@/lib/email/notifications";
-import { supabaseAnon } from "@/lib/supabase-anon";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { updatePassword } from "@/lib/server/user-store";
+import { rateLimit } from "@/lib/server/rate-limit";
+import { getClientIp } from "@/lib/server/request";
 
-export const runtime = "nodejs";
+const anon = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } },
+);
 
 const schema = z.object({
-  currentPassword: z.string().min(1, "contraseña actual requerida"),
-  newPassword: z
-    .string()
-    .min(10, "mínimo 10 caracteres")
-    .max(128)
-    .refine((value) => /[A-Za-z]/.test(value) && /\d/.test(value), "usa letras y números"),
+  email: z.string().email(),
+  currentPassword: z.string().min(8),
+  newPassword: z.string().min(10),
 });
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id || !session.user.email) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export async function POST(request: Request) {
+  const payload = schema.safeParse(await request.json());
+  if (!payload.success) {
+    return NextResponse.json({ message: "Datos incompletos." }, { status: 400 });
   }
 
-  const parsed = schema.safeParse(await req.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  const { email, currentPassword, newPassword } = payload.data;
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`change-password:${ip}:${email}`, 5, 60_000)) {
+    return NextResponse.json({ message: "Demasiados intentos. Intenta más tarde." }, { status: 429 });
   }
 
-  const body = parsed.data;
-  const email = session.user.email.toLowerCase();
-
-  const anon = supabaseAnon();
-  const { data: signInData, error: signInError } = await anon.auth.signInWithPassword({
+  const { data, error } = await anon.auth.signInWithPassword({
     email,
-    password: body.currentPassword,
+    password: currentPassword,
   });
 
-  if (signInError || !signInData?.user) {
-    return NextResponse.json({ error: "invalid_current_password" }, { status: 400 });
+  if (error || !data?.user?.id) {
+    return NextResponse.json({ message: "Contraseña actual incorrecta." }, { status: 400 });
   }
 
-  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(session.user.id, {
-    password: body.newPassword,
-  });
-
-  if (updateError) {
-    console.error("[me.password.change] failed to update supabase user", {
-      userId: session.user.id,
-      error: updateError.message,
-    });
-    return NextResponse.json({ error: "update_failed" }, { status: 500 });
-  }
-
-  const { data: credential } = await supabaseAdmin
-    .from("user_credentials")
-    .select("password_version")
-    .eq("user_id", session.user.id)
-    .maybeSingle();
-
-  const newHash = await bcrypt.hash(body.newPassword, 12);
-  const version = (credential?.password_version ?? 0) + 1;
-
-  await supabaseAdmin
-    .from("user_credentials")
-    .upsert({
-      user_id: session.user.id,
-      password_hash: newHash,
-      password_version: version,
-      updated_at: new Date().toISOString(),
-    })
-    .throwOnError();
-
-  const context = defaultEmailContext(req);
-  const notify = await sendPasswordChangedEmail(email, {
-    email,
-    changeDate: new Date().toISOString(),
-    supportEmail: context.supportEmail,
-    siteUrl: context.siteUrl,
-  });
-
-  if (!notify.ok) {
-    console.error("[me.password.change] passwordChanged email failed", {
-      email,
-      status: notify.status,
-      error: notify.error,
-    });
+  try {
+    await updatePassword(data.user.id, newPassword);
+  } catch (err) {
+    console.error("[me.password.change] update failed", err);
+    return NextResponse.json({ message: "No pudimos actualizar la contraseña." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

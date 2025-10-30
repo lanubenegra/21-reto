@@ -5,9 +5,13 @@ import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
 import { sendResetPasswordEmail } from "@/lib/email/notifications";
 import { getAuthUserWithProfileByEmail, createResetToken } from "@/lib/server/user-store";
+import { verifyTurnstile } from "@/lib/server/turnstile";
+import { getClientIp } from "@/lib/server/request";
+import { rateLimit } from "@/lib/server/rate-limit";
 
 const schema = z.object({
   email: z.string().email(),
+  captchaToken: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,6 +26,16 @@ export async function POST(request: Request) {
   }
 
   const context = defaultEmailContext(request);
+
+  const captchaOk = await verifyTurnstile(body.data.captchaToken);
+  if (!captchaOk) {
+    return NextResponse.json({ message: "Debes completar la verificación." }, { status: 400 });
+  }
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`reset:${ip}:${email}`, 5, 60_000)) {
+    return NextResponse.json({ message: "Inténtalo de nuevo en un minuto." }, { status: 429 });
+  }
 
   const existing = await getAuthUserWithProfileByEmail(email);
   const user = existing?.auth ?? null;

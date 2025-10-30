@@ -7,11 +7,19 @@ import { normalizeEmail } from "@/lib/email";
 import { sendVerifyEmail } from "@/lib/email/notifications";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
+import { verifyTurnstile } from "@/lib/server/turnstile";
+import { rateLimit } from "@/lib/server/rate-limit";
+import { getClientIp } from "@/lib/server/request";
 
 const schema = z.object({
   name: z.string().min(2).max(80),
   email: z.string().email(),
   password: z.string().min(10).max(128),
+  confirmPassword: z.string().min(10).max(128),
+  country: z.string().min(2).max(64),
+  region: z.string().min(2).max(64),
+  consent: z.boolean(),
+  captchaToken: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -21,6 +29,20 @@ export async function POST(request: Request) {
   }
 
   const body = payload.data;
+
+  if (body.password !== body.confirmPassword) {
+    return NextResponse.json({ message: "Las contraseñas no coinciden." }, { status: 400 });
+  }
+
+  if (!body.consent) {
+    return NextResponse.json({ message: "Debes aceptar los términos y la política de privacidad." }, { status: 400 });
+  }
+
+  const captchaOk = await verifyTurnstile(body.captchaToken);
+  if (!captchaOk) {
+    return NextResponse.json({ message: "Debes completar la verificación." }, { status: 400 });
+  }
+
   const displayName = body.name.trim();
   if (displayName.length < 2) {
     return NextResponse.json({ message: "El nombre debe tener al menos 2 caracteres." }, { status: 400 });
@@ -32,6 +54,11 @@ export async function POST(request: Request) {
   }
 
   const context = defaultEmailContext(request);
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`register:${ip}:${email}`, 5, 60_000)) {
+    return NextResponse.json({ message: "Intenta de nuevo en un minuto." }, { status: 429 });
+  }
 
   const existing = await getAuthUserWithProfileByEmail(email);
   const existingUser = existing?.auth ?? null;
@@ -98,7 +125,7 @@ export async function POST(request: Request) {
     email,
     password: body.password,
     email_confirm: false,
-    user_metadata: { name: body.name },
+    user_metadata: { name: body.name, country: body.country, region: body.region },
   });
 
   if (createError || !created?.user?.id) {

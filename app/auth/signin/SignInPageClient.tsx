@@ -7,6 +7,8 @@ import Link from "next/link";
 import { ShieldCheck, X, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PasswordField } from "@/components/forms/PasswordField";
+import { TurnstileWidget } from "@/components/turnstile/TurnstileWidget";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -85,11 +87,31 @@ export default function SignInPageClient() {
   const [mode, setMode] = useState<Mode>((searchParams.get("mode") as Mode) ?? "login");
   const [providers, setProviders] = useState<Record<string, ClientSafeProvider> | null>(null);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
-  const [formState, setFormState] = useState({ name: "", email: "", password: "", token: "", newPassword: "" });
+  const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    country: "",
+    region: "",
+    token: "",
+    newPassword: "",
+    newPasswordConfirm: "",
+  });
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
   const processedHash = useRef(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [captchaTokens, setCaptchaTokens] = useState<{ register: string | null; forgot: string | null; login: string | null }>({
+    register: null,
+    forgot: null,
+    login: null,
+  });
+  const [loginFailures, setLoginFailures] = useState(0);
+
+  const hasTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const showLoginCaptcha = hasTurnstile && loginFailures >= 2;
 
   useEffect(() => {
     getProviders().then(setProviders);
@@ -99,6 +121,12 @@ export default function SignInPageClient() {
     const param = (searchParams.get("mode") as Mode) ?? "login";
     setMode(param);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (mode !== "forgot") {
+      setShowResetForm(false);
+    }
+  }, [mode]);
 
   useEffect(() => {
     if (processedHash.current) return;
@@ -163,18 +191,36 @@ export default function SignInPageClient() {
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (showLoginCaptcha && !captchaTokens.login) {
+      setMessage("Completa la verificación de seguridad.");
+      return;
+    }
     setPending(true);
     setMessage(null);
     const result = await signIn("credentials", {
       email: formState.email,
       password: formState.password,
       redirect: false,
+      cfToken: captchaTokens.login ?? undefined,
     });
     setPending(false);
     if (result?.ok) {
+      setLoginFailures(0);
+      setCaptchaTokens(prev => ({ ...prev, login: null }));
       window.location.href = "/";
     } else {
-      setMessage("Correo o contraseña inválidos o sin verificar. Revisa tus datos o confirma tu correo.");
+      setLoginFailures(prev => prev + 1);
+      const error = result?.error ?? "";
+      if (error === "captcha_failed") {
+        setMessage("Completa la verificación de seguridad.");
+      } else if (error === "rate_limited") {
+        setMessage("Demasiados intentos. Intenta nuevamente en un minuto.");
+      } else if (error === "email_not_confirmed") {
+        setMessage("Revisa tu correo y confirma tu cuenta.");
+      } else {
+        setMessage("Correo o contraseña no válidos o sin confirmar.");
+      }
+      setCaptchaTokens(prev => ({ ...prev, login: null }));
     }
   }
 
@@ -184,6 +230,18 @@ export default function SignInPageClient() {
     const trimmedName = formState.name.trim();
     if (trimmedName.length < 2) {
       setMessage("Ingresa tu nombre completo (2 caracteres o más).");
+      return;
+    }
+    if (!termsAccepted) {
+      setMessage("Debes aceptar los Términos y la Política de Privacidad.");
+      return;
+    }
+    if (hasTurnstile && !captchaTokens.register) {
+      setMessage("Completa la verificación de seguridad.");
+      return;
+    }
+    if (formState.password !== formState.confirmPassword) {
+      setMessage("Las contraseñas no coinciden.");
       return;
     }
     if (
@@ -200,7 +258,16 @@ export default function SignInPageClient() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName, email: formState.email, password: formState.password }),
+        body: JSON.stringify({
+          name: trimmedName,
+          email: formState.email,
+          password: formState.password,
+          confirmPassword: formState.confirmPassword,
+          country: formState.country,
+          region: formState.region,
+          consent: termsAccepted,
+          captchaToken: captchaTokens.register,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 201 || response.status === 202) {
@@ -219,33 +286,43 @@ export default function SignInPageClient() {
       setMessage(data?.message ?? "No fue posible crear la cuenta.");
     } finally {
       setPending(false);
+      setCaptchaTokens(prev => ({ ...prev, register: null }));
     }
   }
 
   async function handleForgot(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (hasTurnstile && !captchaTokens.forgot) {
+      setMessage("Completa la verificación de seguridad.");
+      return;
+    }
     setPending(true);
     setMessage(null);
     const response = await fetch("/api/auth/reset-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: formState.email }),
+      body: JSON.stringify({ email: formState.email, captchaToken: captchaTokens.forgot }),
     });
     setPending(false);
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
       setMessage(
         data?.message ??
-          "Enviamos instrucciones a tu correo. Revisa tu bandeja y sigue el enlace para restablecer."
+          "Si tu correo existe, te enviamos un enlace para crear una nueva contraseña."
       );
     } else {
       setMessage(data?.message ?? "No fue posible generar la solicitud");
     }
+    setCaptchaTokens(prev => ({ ...prev, forgot: null }));
   }
 
   async function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
+    if (formState.newPassword !== formState.newPasswordConfirm) {
+      setMessage("Las contraseñas no coinciden.");
+      return;
+    }
     if (
       formState.newPassword.length < 10 ||
       !/[A-Za-z]/.test(formState.newPassword) ||
@@ -264,6 +341,7 @@ export default function SignInPageClient() {
       if (response.ok) {
         setMessage("Contraseña actualizada. Inicia sesión nuevamente.");
         setMode("login");
+        setFormState(prev => ({ ...prev, newPassword: "", newPasswordConfirm: "", token: "" }));
       } else {
         const data = await response.json();
         setMessage(data.message ?? "Token inválido o expirado.");
@@ -364,7 +442,10 @@ export default function SignInPageClient() {
                 className={`flex-1 rounded-full px-3 py-1 transition ${
                   mode === segment.key ? "bg-white text-[#0b1635]" : "text-white/70 hover:bg-white/15"
                 }`}
-                onClick={() => setMode(segment.key)}
+                onClick={() => {
+                  setMode(segment.key);
+                  setMessage(null);
+                }}
               >
                 {segment.label}
               </button>
@@ -388,18 +469,22 @@ export default function SignInPageClient() {
                     placeholder="tu@email.com"
                   />
                 </div>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Contraseña</label>
-                  <input
-                    type="password"
-                    required
-                    autoComplete="current-password"
-                    value={formState.password}
-                    onChange={onInputChange("password")}
-                    className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                    placeholder="••••••••"
-                  />
-                </div>
+                <PasswordField
+                  label="Contraseña"
+                  name="password"
+                  value={formState.password}
+                  onChange={value => setFormState(prev => ({ ...prev, password: value }))}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                />
+                {showLoginCaptcha && (
+                  <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
+                    <TurnstileWidget
+                      action="login"
+                      onToken={token => setCaptchaTokens(prev => ({ ...prev, login: token }))}
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs text-white/75">
                   <button type="button" className="text-white underline" onClick={() => setMode("forgot")}>
                     ¿Olvidaste tu contraseña?
@@ -450,18 +535,72 @@ export default function SignInPageClient() {
                     placeholder="tu@email.com"
                   />
                 </div>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Contraseña</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={10}
-                    value={formState.password}
-                    onChange={onInputChange("password")}
-                    className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                    placeholder="Mínimo 10 caracteres (letras y números)"
-                  />
+                <PasswordField
+                  label="Contraseña"
+                  name="password"
+                  value={formState.password}
+                  onChange={value => setFormState(prev => ({ ...prev, password: value }))}
+                  autoComplete="new-password"
+                  placeholder="Mínimo 10 caracteres (letras y números)"
+                />
+                <PasswordField
+                  label="Confirma tu contraseña"
+                  name="confirmPassword"
+                  value={formState.confirmPassword}
+                  onChange={value => setFormState(prev => ({ ...prev, confirmPassword: value }))}
+                  autoComplete="new-password"
+                  placeholder="Repite tu contraseña"
+                />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">País</label>
+                    <input
+                      type="text"
+                      required
+                      value={formState.country}
+                      onChange={onInputChange("country")}
+                      className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
+                      placeholder="Colombia"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Estado / Región</label>
+                    <input
+                      type="text"
+                      required
+                      value={formState.region}
+                      onChange={onInputChange("region")}
+                      className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
+                      placeholder="Antioquia"
+                    />
+                  </div>
                 </div>
+                <label className="flex items-center gap-3 text-xs text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={event => setTermsAccepted(event.target.checked)}
+                    className="h-4 w-4 rounded border-white/30 bg-transparent"
+                  />
+                  <span>
+                    Acepto los{" "}
+                    <Link href="/terminos" className="underline">
+                      Términos
+                    </Link>{" "}
+                    y la{" "}
+                    <Link href="/privacidad" className="underline">
+                      Política de Privacidad
+                    </Link>
+                  </span>
+                </label>
+                {hasTurnstile && (
+                  <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
+                    <TurnstileWidget
+                      action="register"
+                      onToken={token => setCaptchaTokens(prev => ({ ...prev, register: token }))}
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs text-white/75">
                   <button type="button" className="text-white underline" onClick={() => setMode("login")}>
                     ¿Ya tienes cuenta?
@@ -503,20 +642,29 @@ export default function SignInPageClient() {
                         placeholder="tu@email.com"
                       />
                     </div>
+                    {hasTurnstile && (
+                      <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
+                        <TurnstileWidget
+                          action="forgot"
+                          onToken={token => setCaptchaTokens(prev => ({ ...prev, forgot: token }))}
+                        />
+                      </div>
+                    )}
                     <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                       {pending ? "Enviando..." : "Enviar instrucciones"}
                     </Button>
                   </form>
-                  <button
-                    type="button"
-                    className="w-full rounded-[18px] border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
-                    onClick={() => {
-                      setShowResetForm(true);
-                      setMessage("Pega el token que recibiste y crea tu nueva contraseña.");
-                    }}
-                  >
-                    Ya tengo el token, crear nueva contraseña
-                  </button>
+                <button
+                  type="button"
+                  className="w-full rounded-[18px] border border-white/25 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
+                  onClick={() => {
+                    setShowResetForm(true);
+                    setMessage("Pega el token que recibiste y crea tu nueva contraseña.");
+                    setFormState(prev => ({ ...prev, newPassword: "", newPasswordConfirm: "" }));
+                  }}
+                >
+                  Ya tengo el token, crear nueva contraseña
+                </button>
                 </div>
               )}
 
@@ -532,18 +680,22 @@ export default function SignInPageClient() {
                       placeholder="Pega el token"
                     />
                   </div>
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Nueva contraseña</label>
-                    <input
-                      type="password"
-                      required
-                      minLength={10}
-                      value={formState.newPassword}
-                      onChange={onInputChange("newPassword")}
-                      className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                      placeholder="Mínimo 10 caracteres"
-                    />
-                  </div>
+                  <PasswordField
+                    label="Nueva contraseña"
+                    name="newPassword"
+                    value={formState.newPassword}
+                    onChange={value => setFormState(prev => ({ ...prev, newPassword: value }))}
+                    autoComplete="new-password"
+                    placeholder="Mínimo 10 caracteres"
+                  />
+                  <PasswordField
+                    label="Confirma tu contraseña"
+                    name="newPasswordConfirm"
+                    value={formState.newPasswordConfirm}
+                    onChange={value => setFormState(prev => ({ ...prev, newPasswordConfirm: value }))}
+                    autoComplete="new-password"
+                    placeholder="Repite tu contraseña"
+                  />
                   <Button type="submit" className="w-full rounded-[18px] bg-mana-primary text-white hover:bg-mana-primaryDark" disabled={pending}>
                     {pending ? "Actualizando..." : "Actualizar contraseña"}
                   </Button>
