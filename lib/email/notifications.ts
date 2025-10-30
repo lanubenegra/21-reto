@@ -110,7 +110,7 @@ export const sendWelcomeRetosEmail = (to: string, data: Data = {}) =>
     to,
     templateKey: "welcomeRetos",
     data: {
-      subject: "¡Bienvenido a 21 Retos!",
+      subject: "🚀 Tu transformación en 21 Retos arranca hoy",
       preheader: "Tu acceso ya está activo. Empieza hoy mismo con tu primer reto.",
       tag: "Bienvenida",
       ...data,
@@ -123,7 +123,7 @@ export const sendAgendaActivationEmail = (to: string, data: Data = {}) =>
     to,
     templateKey: "agendaActivation",
     data: {
-      subject: "Tu Agenda Devocional ya está lista",
+      subject: "🗓️ Tu Agenda Devocional te espera, ¿listo para empezar?",
       preheader: "Accede a la Agenda Devocional con tus credenciales de siempre.",
       tag: "Agenda",
       ...data,
@@ -136,7 +136,7 @@ export const sendResetPasswordEmail = (to: string, data: Data) =>
     to,
     templateKey: "resetPassword",
     data: {
-      subject: "🔐 Recupera tu acceso a Devocional Maná",
+      subject: "🔐 Recupera tu acceso en 2 pasos ultra rápidos",
       preheader: "Generamos un enlace seguro para que restablezcas tu contraseña.",
       tag: "Seguridad",
       ...data,
@@ -149,7 +149,7 @@ export const sendSignupWelcomeEmail = (to: string, data: Data) =>
     to,
     templateKey: "signupWelcome",
     data: {
-      subject: "Bienvenido a Devocional Maná",
+      subject: "🌱 Bienvenido a Devocional Maná: descubre lo que nadie te contó",
       preheader: "Estos son los pasos para comenzar con buen pie.",
       tag: "Bienvenida",
       ...data,
@@ -162,7 +162,7 @@ export const sendVerifyEmail = (to: string, data: Data) =>
     to,
     templateKey: "verifyEmail",
     data: {
-      subject: "Confirma tu correo",
+      subject: "✅ Un toque final para desbloquear tu nuevo hogar espiritual",
       preheader: "Activa tu cuenta y protege tu acceso.",
       tag: "Verificación",
       ...data,
@@ -175,7 +175,7 @@ export const sendPasswordChangedEmail = (to: string, data: Data) =>
     to,
     templateKey: "passwordChanged",
     data: {
-      subject: "Tu contraseña fue actualizada",
+      subject: "⚠️ ¿Fuiste tú? Confirmamos tu nueva contraseña",
       preheader: "Si no reconoces este cambio, contáctanos cuanto antes.",
       tag: "Seguridad",
       ...data,
@@ -188,7 +188,7 @@ export const sendPasswordResetSuccessEmail = (to: string, data: Data) =>
     to,
     templateKey: "passwordResetSuccess",
     data: {
-      subject: "Confirmamos tu nueva contraseña",
+      subject: "🔐 Clave actualizada: mira lo que cambió",
       preheader: "El acceso quedó actualizado. Inicia sesión de nuevo para continuar.",
       tag: "Seguridad",
       ...data,
@@ -201,7 +201,7 @@ export const sendSupportPasswordResetEmail = (to: string, data: Data) =>
     to,
     templateKey: "supportPasswordReset",
     data: {
-      subject: "Soporte actualizó tu acceso",
+      subject: "🤝 Soporte abrió una puerta especial para ti",
       preheader: "Cambia tu contraseña al iniciar sesión para mantener tu cuenta protegida.",
       tag: "Soporte",
       ...data,
@@ -214,7 +214,7 @@ export const sendProfileUpdatedBySupportEmail = (to: string, data: Data) =>
     to,
     templateKey: "profileUpdatedBySupport",
     data: {
-      subject: "Actualizamos tu perfil",
+      subject: "🛠️ Ajustamos tu perfil para que brille más",
       preheader: "Un miembro del equipo ajustó algunos de tus datos de contacto.",
       tag: "Soporte",
       ...data,
@@ -227,7 +227,7 @@ export const sendRoleChangedEmail = (to: string, data: Data) =>
     to,
     templateKey: "roleChanged",
     data: {
-      subject: "Tu rol dentro de Devocional Maná cambió",
+      subject: "✨ Nuevo rol desbloqueado en Devocional Maná",
       preheader: "Revisa los nuevos permisos asignados a tu cuenta.",
       tag: "Permisos",
       ...data,
@@ -240,7 +240,7 @@ export const sendPaymentReceiptEmail = (to: string, data: Data) =>
     to,
     templateKey: "paymentReceipt",
     data: {
-      subject: "Recibo de tu donación",
+      subject: "🙏 Gracias por sembrar: mira lo que habilitaste",
       preheader: "Gracias por sembrar en Devocional Maná. Aquí los detalles de tu aporte.",
       tag: "Donación",
       ...data,
@@ -253,7 +253,7 @@ export const sendPaymentFailedEmail = (to: string, data: Data) =>
     to,
     templateKey: "paymentFailed",
     data: {
-      subject: "Necesitamos actualizar tu donación",
+      subject: "⛔ Tu donación quedó en pausa (tenemos 1 paso rápido)",
       preheader: "Hubo un inconveniente con tu medio de pago. Revísalo por favor.",
       tag: "Donación",
       ...data,
@@ -266,7 +266,7 @@ export const sendExternalGrantEmail = (to: string, data: Data = {}) =>
     to,
     templateKey: "externalGrant",
     data: {
-      subject: "Tienes acceso a 21 Retos",
+      subject: "🎁 Te regalaron acceso a 21 Retos… descúbrelo",
       preheader: "Habilitamos tu cuenta para que avances en los 21 días de crecimiento.",
       tag: "Acceso",
       ...data,
@@ -279,7 +279,7 @@ export const sendLicenseRevokedEmail = (to: string, data: Data) =>
     to,
     templateKey: "licenseRevoked",
     data: {
-      subject: "Actualizamos tus accesos",
+      subject: "🔄 Ajustamos tus accesos: esto es lo nuevo",
       preheader: "Un miembro del equipo ajustó uno de tus permisos.",
       tag: "Acceso",
       ...data,
@@ -292,7 +292,7 @@ export const sendAgendaReactivatedEmail = (to: string, data: Data) =>
     to,
     templateKey: "agendaReactivated",
     data: {
-      subject: "Restablecimos tu acceso a la Agenda",
+      subject: "📔 Tu Agenda revive hoy con una sorpresa",
       preheader: "Ya puedes ingresar nuevamente y llevar tu devocional día a día.",
       tag: "Agenda",
       ...data,
@@ -305,7 +305,7 @@ export const sendPlanStartEmail = (to: string, data: Data) =>
     to,
     templateKey: "planStart",
     data: {
-      subject: "Tu plan de 21 Retos está por iniciar",
+      subject: "⏰ Cuenta regresiva para tu plan de 21 Retos",
       preheader: "Marca la fecha y prepárate para vivir el proceso día a día.",
       tag: "Plan",
       ...data,
@@ -318,7 +318,7 @@ export const sendCompletionCertificateEmail = (to: string, data: Data) =>
     to,
     templateKey: "completionCertificate",
     data: {
-      subject: "¡Completaste los 21 Retos!",
+      subject: "🏆 Tu certificado está listo: mira tu logro final",
       preheader: "Celebremos juntos lo que Dios empezó en tu vida.",
       tag: "Celebración",
       ...data,
@@ -331,7 +331,7 @@ export const sendAssessmentSummaryEmail = (to: string, data: Data) =>
     to,
     templateKey: "assessmentSummary",
     data: {
-      subject: "Resumen de tu evaluación",
+      subject: "📊 Así va tu progreso: revelamos tus métricas clave",
       preheader: "Mira cómo vas creciendo en cada área de tu vida.",
       tag: "Evaluación",
       ...data,
@@ -350,7 +350,7 @@ export const sendGrantFailureAlert = async (data: Data) => {
     to,
     templateKey: "grantFailureAlert",
     data: {
-      subject: "[Alerta] Falla otorgando Agenda",
+      subject: "🚨 Grant Agenda falló: acción inmediata requerida",
       preheader: "Revisemos el outbox de grant. Un usuario espera su activación.",
       tag: "ALERTA",
       ...data,
