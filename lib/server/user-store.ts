@@ -227,8 +227,28 @@ export async function createResetToken(email: string) {
     return null;
   }
 
-  const token = crypto.randomUUID().replace(/-/g, "");
-  return { token, expiresAt: Date.now() + RESET_TOKEN_TTL_MS };
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString();
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  await supabaseAdmin
+    .from("password_resets")
+    .update({ used: true, used_at: now.toISOString() })
+    .eq("user_id", profile.id)
+    .eq("used", false);
+
+  await supabaseAdmin
+    .from("password_resets")
+    .insert({
+      user_id: profile.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used: false,
+      created_at: now.toISOString(),
+    });
+
+  return { token, expiresAt: now.getTime() + RESET_TOKEN_TTL_MS };
 }
 
 export async function updatePassword(userId: string, newPassword: string) {
@@ -249,6 +269,30 @@ export async function updatePassword(userId: string, newPassword: string) {
     password_version: nextVersion,
     updated_at: new Date().toISOString(),
   });
+}
+
+export async function consumeResetToken(token: string) {
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const nowIso = new Date().toISOString();
+
+  const { data: record } = await supabaseAdmin
+    .from("password_resets")
+    .select("id, user_id")
+    .eq("token_hash", tokenHash)
+    .eq("used", false)
+    .gt("expires_at", nowIso)
+    .maybeSingle();
+
+  if (!record?.id || !record.user_id) {
+    return null;
+  }
+
+  await supabaseAdmin
+    .from("password_resets")
+    .update({ used: true, used_at: nowIso })
+    .eq("id", record.id);
+
+  return record.user_id as string;
 }
 
 export type { StoredUser };

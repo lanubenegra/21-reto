@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import jwt from "jsonwebtoken";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { updatePassword } from "@/lib/server/user-store";
+import { consumeResetToken, updatePassword } from "@/lib/server/user-store";
 import { defaultEmailContext } from "@/lib/email/context";
 import { sendPasswordResetSuccessEmail } from "@/lib/email/notifications";
 
@@ -70,27 +69,9 @@ export async function POST(request: Request) {
     return NextResponse.json(WEAK_PASSWORD_ERROR, { status: 400, headers: responseHeaders });
   }
 
-  // Decode token for diagnostics; do not rely on decoded payload for auth.
-  try {
-    const decoded = jwt.decode(token) as Record<string, unknown> | null;
-    const exp = typeof decoded?.exp === "number" ? decoded.exp * 1000 : null;
-    if (exp && exp <= Date.now()) {
-      console.warn("[auth.reset.v2] token expired (decoded)", { requestId, exp, now: Date.now() });
-      return NextResponse.json(INVALID_TOKEN_ERROR, { status: 400, headers: responseHeaders });
-    }
-  } catch (error) {
-    console.error("[auth.reset.v2] token decode failed", { requestId, error: (error as Error).message });
-  }
-
-  // Validate token against Supabase using the service role client.
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  const userId = data?.user?.id ?? null;
-
-  if (error || !userId) {
-    console.error("[auth.reset.v2] invalid token (auth.getUser)", {
-      requestId,
-      error: error?.message ?? null,
-    });
+  const userId = await consumeResetToken(token);
+  if (!userId) {
+    console.warn("[auth.reset.v2] invalid or expired custom token", { requestId });
     return NextResponse.json(INVALID_TOKEN_ERROR, { status: 400, headers: responseHeaders });
   }
 
@@ -111,7 +92,7 @@ export async function POST(request: Request) {
     .eq("id", userId)
     .maybeSingle();
 
-  const email = profile?.email ?? data.user?.email ?? null;
+  const email = profile?.email ?? null;
   if (email) {
     const context = defaultEmailContext(request);
     const notify = await sendPasswordResetSuccessEmail(email, {

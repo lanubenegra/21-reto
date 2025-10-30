@@ -4,8 +4,7 @@ import { z } from "zod";
 import { defaultEmailContext } from "@/lib/email/context";
 import { normalizeEmail } from "@/lib/email";
 import { sendResetPasswordEmail } from "@/lib/email/notifications";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { getAuthUserWithProfileByEmail } from "@/lib/server/user-store";
+import { getAuthUserWithProfileByEmail, createResetToken } from "@/lib/server/user-store";
 
 const schema = z.object({
   email: z.string().email(),
@@ -31,31 +30,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink(
-    {
-      type: "recovery",
-      email,
-      options: {
-        redirectTo: `${context.siteUrl}/auth/signin`,
-      },
-    } as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0],
-  );
-
-  const actionLink =
-    linkData?.properties?.action_link ??
-    (typeof (linkData as { action_link?: string }).action_link === "string"
-      ? (linkData as { action_link?: string }).action_link
-      : null);
-
-  if (linkError || !actionLink) {
-    console.error("[auth.reset-request] generate link failed", { email, error: linkError?.message });
+  const tokenData = await createResetToken(email);
+  if (!tokenData) {
+    console.error("[auth.reset-request] token creation failed", { email });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
+
+  const base = context.resetUrlBase ?? `${context.siteUrl}/auth/signin?mode=forgot`;
+  const separator = base.includes("?") ? "&" : "?";
+  const resetUrl = `${base}${separator}token=${tokenData.token}&email=${encodeURIComponent(email)}`;
 
   const delivered = await sendResetPasswordEmail(email, {
     email,
     name: profile?.display_name ?? user.user_metadata?.name ?? undefined,
-    resetUrl: actionLink,
+    resetUrl,
+    expiresAt: new Date(tokenData.expiresAt).toISOString(),
     supportEmail: context.supportEmail,
     siteUrl: context.siteUrl,
   });
