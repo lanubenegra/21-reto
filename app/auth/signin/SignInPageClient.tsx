@@ -8,7 +8,7 @@ import { ShieldCheck, X, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PasswordField } from "@/components/forms/PasswordField";
-import { TurnstileWidget } from "@/components/turnstile/TurnstileWidget";
+import TurnstileBox from "@/components/security/TurnstileBox";
 
 type Mode = "login" | "register" | "forgot";
 
@@ -479,9 +479,12 @@ export default function SignInPageClient() {
                 />
                 {showLoginCaptcha && (
                   <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
-                    <TurnstileWidget
+                    <TurnstileBox
                       action="login"
-                      onToken={token => setCaptchaTokens(prev => ({ ...prev, login: token }))}
+                      onVerify={token =>
+                        setCaptchaTokens(prev => ({ ...prev, login: token ? token : null }))
+                      }
+                      onExpire={() => setCaptchaTokens(prev => ({ ...prev, login: null }))}
                     />
                   </div>
                 )}
@@ -595,9 +598,12 @@ export default function SignInPageClient() {
                 </label>
                 {hasTurnstile && (
                   <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
-                    <TurnstileWidget
+                    <TurnstileBox
                       action="register"
-                      onToken={token => setCaptchaTokens(prev => ({ ...prev, register: token }))}
+                      onVerify={token =>
+                        setCaptchaTokens(prev => ({ ...prev, register: token ? token : null }))
+                      }
+                      onExpire={() => setCaptchaTokens(prev => ({ ...prev, register: null }))}
                     />
                   </div>
                 )}
@@ -644,9 +650,12 @@ export default function SignInPageClient() {
                     </div>
                     {hasTurnstile && (
                       <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
-                        <TurnstileWidget
+                        <TurnstileBox
                           action="forgot"
-                          onToken={token => setCaptchaTokens(prev => ({ ...prev, forgot: token }))}
+                          onVerify={token =>
+                            setCaptchaTokens(prev => ({ ...prev, forgot: token ? token : null }))
+                          }
+                          onExpire={() => setCaptchaTokens(prev => ({ ...prev, forgot: null }))}
                         />
                       </div>
                     )}
