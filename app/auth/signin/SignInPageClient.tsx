@@ -219,15 +219,18 @@ export default function SignInPageClient() {
       setCaptchaTokens(prev => ({ ...prev, login: null }));
       window.location.href = "/";
     } else {
-      setLoginFailures(prev => prev + 1);
       const error = result?.error ?? "";
       if (error === "captcha_failed") {
+        setLoginFailures(prev => Math.max(prev + 1, 2));
         setMessage("Completa la verificación de seguridad.");
       } else if (error === "rate_limited") {
+        setLoginFailures(prev => prev + 1);
         setMessage("Demasiados intentos. Intenta nuevamente en un minuto.");
       } else if (error === "email_not_confirmed") {
+        setLoginFailures(prev => prev + 1);
         setMessage("Revisa tu correo y confirma tu cuenta.");
       } else {
+        setLoginFailures(prev => prev + 1);
         setMessage("Correo o contraseña no válidos o sin confirmar.");
       }
       setCaptchaTokens(prev => ({ ...prev, login: null }));
@@ -351,6 +354,7 @@ export default function SignInPageClient() {
       if (response.ok) {
         setMessage("Contraseña actualizada. Antes de continuar, revisa estas indicaciones.");
         setShowPostResetGuide(true);
+        setLoginFailures(2);
         setMode("login");
         setFormState(prev => ({ ...prev, newPassword: "", newPasswordConfirm: "", token: "" }));
       } else {
