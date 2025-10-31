@@ -7,6 +7,9 @@ type ProfileRow = {
   email?: string | null;
   display_name?: string | null;
   country?: string | null;
+  city?: string | null;
+  document_type?: string | null;
+  document_number?: string | null;
   role?: string | null;
   whatsapp?: string | null;
   timezone?: string | null;
@@ -179,6 +182,9 @@ export default function AdminPage() {
                               <span>Rol: {profile.role ?? "user"}</span>
                               {profile.whatsapp && <span>WhatsApp: {profile.whatsapp}</span>}
                               {profile.country && <span>País: {profile.country}</span>}
+                              {profile.city && <span>Ciudad: {profile.city}</span>}
+                              {profile.document_type && <span>Doc: {profile.document_type}</span>}
+                              {profile.document_number && <span># {profile.document_number}</span>}
                             </div>
                           </div>
                           <button
@@ -356,6 +362,9 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
     display_name: profile.display_name ?? "",
     country: profile.country ?? "",
     whatsapp: profile.whatsapp ?? "",
+    city: profile.city ?? "",
+    document_type: profile.document_type ?? "",
+    document_number: profile.document_number ?? "",
     timezone: profile.timezone ?? "",
     photo_url: profile.photo_url ?? "",
   });
@@ -370,13 +379,16 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
       display_name: profile.display_name ?? "",
       country: profile.country ?? "",
       whatsapp: profile.whatsapp ?? "",
+      city: profile.city ?? "",
+      document_type: profile.document_type ?? "",
+      document_number: profile.document_number ?? "",
       timezone: profile.timezone ?? "",
       photo_url: profile.photo_url ?? "",
     });
     setPassword("");
     setMessage(null);
     setError(null);
-  }, [profile.id, profile.display_name, profile.country, profile.whatsapp, profile.timezone, profile.photo_url]);
+  }, [profile.id, profile.display_name, profile.country, profile.whatsapp, profile.city, profile.document_type, profile.document_number, profile.timezone, profile.photo_url]);
 
   async function saveProfile() {
     if (!profile.id) return;
@@ -385,7 +397,16 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
     setError(null);
     try {
       const payload: Record<string, string | null> = {};
-      const fieldKeys: Array<keyof typeof form> = ["display_name", "country", "whatsapp", "timezone", "photo_url"];
+      const fieldKeys: Array<keyof typeof form> = [
+        "display_name",
+        "country",
+        "city",
+        "document_type",
+        "document_number",
+        "whatsapp",
+        "timezone",
+        "photo_url",
+      ];
       fieldKeys.forEach((key) => {
         const originalValue = profile[key as keyof ProfileRow];
         const raw = form[key] ?? "";
@@ -396,7 +417,16 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
           return;
         }
 
-        payload[key] = trimmed ? trimmed : null;
+        if (!trimmed) {
+          payload[key] = null;
+          return;
+        }
+
+        let nextValue = trimmed;
+        if (key === "country" || key === "document_type") {
+          nextValue = trimmed.toUpperCase();
+        }
+        payload[key] = nextValue;
       });
 
       if (!Object.keys(payload).length) {
@@ -469,12 +499,39 @@ function ProfileEditor({ profile, onSaved }: ProfileEditorProps) {
           />
         </label>
         <label className="text-xs uppercase tracking-wide text-gray-500">
+          Ciudad
+          <input
+            className="mt-1 w-full rounded border px-3 py-2 text-sm"
+            value={form.city}
+            onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+            placeholder="Medellín"
+          />
+        </label>
+        <label className="text-xs uppercase tracking-wide text-gray-500">
           WhatsApp
           <input
             className="mt-1 w-full rounded border px-3 py-2 text-sm"
             value={form.whatsapp}
             onChange={(event) => setForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
             placeholder="+57..."
+          />
+        </label>
+        <label className="text-xs uppercase tracking-wide text-gray-500">
+          Tipo documento
+          <input
+            className="mt-1 w-full rounded border px-3 py-2 text-sm"
+            value={form.document_type}
+            onChange={(event) => setForm((prev) => ({ ...prev, document_type: event.target.value.toUpperCase() }))}
+            placeholder="CC, CE, NIT..."
+          />
+        </label>
+        <label className="text-xs uppercase tracking-wide text-gray-500">
+          Número documento
+          <input
+            className="mt-1 w-full rounded border px-3 py-2 text-sm"
+            value={form.document_number}
+            onChange={(event) => setForm((prev) => ({ ...prev, document_number: event.target.value }))}
+            placeholder="1234567890"
           />
         </label>
         <label className="text-xs uppercase tracking-wide text-gray-500">

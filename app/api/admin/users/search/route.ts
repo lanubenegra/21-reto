@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const [profilesRes, entitlementsRes, ordersRes] = await Promise.all([
     supabaseAdmin
       .from("profiles")
-      .select("id, email, display_name, country, role, whatsapp, created_at")
+      .select("id, email, display_name, country, city, document_type, document_number, role, whatsapp, created_at")
       .or(`email.ilike.%${query}%,display_name.ilike.%${query}%`),
     supabaseAdmin
       .from("entitlements")

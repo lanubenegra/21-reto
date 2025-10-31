@@ -12,6 +12,9 @@ const schema = z.object({
   display_name: z.union([z.string().min(2).max(80), z.null()]).optional(),
   country: z.union([z.string().max(2), z.null()]).optional(),
   whatsapp: z.union([z.string().max(32), z.null()]).optional(),
+  city: z.union([z.string().max(80), z.null()]).optional(),
+  document_type: z.union([z.string().max(16), z.null()]).optional(),
+  document_number: z.union([z.string().max(64), z.null()]).optional(),
   timezone: z.union([z.string().max(64), z.null()]).optional(),
   photo_url: z.union([z.string().url(), z.null()]).optional(),
 });
@@ -37,9 +40,24 @@ export async function POST(req: Request) {
   const updates: Record<string, string | null> = {};
   (Object.keys(fields) as Array<keyof typeof fields>).forEach((key) => {
     const value = fields[key];
-    if (value !== undefined) {
-      updates[key] = value;
+    if (value === undefined) return;
+
+    if (value === null) {
+      updates[key] = null;
+      return;
     }
+
+    let nextValue = value.trim();
+    if (!nextValue) {
+      updates[key] = null;
+      return;
+    }
+
+    if (key === "country" || key === "document_type") {
+      nextValue = nextValue.toUpperCase();
+    }
+
+    updates[key] = nextValue;
   });
 
   if (!Object.keys(updates).length) {

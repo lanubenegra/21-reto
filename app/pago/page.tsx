@@ -132,6 +132,9 @@ export default function Pago() {
           display_name?: string | null
           country?: string | null
           whatsapp?: string | null
+          city?: string | null
+          document_type?: string | null
+          document_number?: string | null
         }
         setForm(prev => {
           const next: FormState = { ...prev }
@@ -146,6 +149,18 @@ export default function Pago() {
           }
           if (!prev.country.trim() && profile.country) {
             next.country = profile.country
+            changed = true
+          }
+          if (!prev.city.trim() && profile.city) {
+            next.city = profile.city
+            changed = true
+          }
+          if (!prev.documentType.trim() && profile.document_type) {
+            next.documentType = profile.document_type
+            changed = true
+          }
+          if (!prev.documentNumber.trim() && profile.document_number) {
+            next.documentNumber = profile.document_number
             changed = true
           }
           return changed ? next : prev
@@ -239,6 +254,51 @@ export default function Pago() {
 
   const handleSelect = (field: keyof FormState) => (event: React.ChangeEvent<HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [field]: event.target.value }))
+  }
+
+  const syncDonationProfile = async () => {
+    const payload: Record<string, string> = {}
+    const trimmedName = form.name.trim()
+    if (trimmedName) {
+      payload.display_name = trimmedName
+    }
+    const trimmedCountry = form.country.trim()
+    if (trimmedCountry) {
+      payload.country = normalizeCountry(trimmedCountry)
+    }
+    const trimmedPhone = form.phone.trim()
+    if (trimmedPhone) {
+      payload.whatsapp = trimmedPhone
+    }
+    const trimmedCity = form.city.trim()
+    if (trimmedCity) {
+      payload.city = trimmedCity
+    }
+    const trimmedDocType = form.documentType.trim()
+    if (trimmedDocType) {
+      payload.document_type = trimmedDocType.toUpperCase()
+    }
+    const trimmedDocNumber = form.documentNumber.trim()
+    if (trimmedDocNumber) {
+      payload.document_number = trimmedDocNumber
+    }
+
+    if (!Object.keys(payload).length) return
+
+    try {
+      const res = await fetch('/api/me/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        console.error('[pago] profile sync failed', body)
+      }
+    } catch (error) {
+      console.error('[pago] profile sync exception', error)
+    }
   }
 
   const validateForm = () => {
@@ -343,6 +403,8 @@ export default function Pago() {
     try {
       const accountReady = await ensureAccount(email)
       if (!accountReady) return
+
+      await syncDonationProfile()
 
       const pricingResponse = await fetch(`/api/prices?sku=${sku}&country=${countryCode}`, {
         cache: 'no-store',

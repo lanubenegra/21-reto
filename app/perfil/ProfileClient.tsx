@@ -9,6 +9,9 @@ type ProfileData = {
   display_name?: string | null;
   country?: string | null;
   whatsapp?: string | null;
+  city?: string | null;
+  document_type?: string | null;
+  document_number?: string | null;
   role?: string | null;
   created_at?: string | null;
 };
@@ -46,9 +49,12 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
     () => ({
       display_name: profile?.display_name?.trim() ?? "",
       country: profile?.country?.trim() ?? "",
+      city: profile?.city?.trim() ?? "",
+      document_type: profile?.document_type?.trim() ?? "",
+      document_number: profile?.document_number?.trim() ?? "",
       whatsapp: profile?.whatsapp?.trim() ?? "",
     }),
-    [profile?.country, profile?.display_name, profile?.whatsapp],
+    [profile?.city, profile?.country, profile?.display_name, profile?.document_number, profile?.document_type, profile?.whatsapp],
   );
 
   const [form, setForm] = useState(initial);
@@ -74,12 +80,27 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
   );
 
   const hasProfileChanges = useMemo(() => {
-    return (
-      initial.display_name !== form.display_name.trim() ||
-      initial.country !== form.country.trim() ||
-      initial.whatsapp !== form.whatsapp.trim()
-    );
-  }, [form.country, form.display_name, form.whatsapp, initial.country, initial.display_name, initial.whatsapp]);
+    const nameChanged = initial.display_name !== form.display_name.trim();
+    const countryChanged = initial.country.toUpperCase() !== form.country.trim().toUpperCase();
+    const cityChanged = initial.city !== form.city.trim();
+    const docTypeChanged = initial.document_type.toUpperCase() !== form.document_type.trim().toUpperCase();
+    const docNumberChanged = initial.document_number !== form.document_number.trim();
+    const whatsappChanged = initial.whatsapp !== form.whatsapp.trim();
+    return nameChanged || countryChanged || cityChanged || docTypeChanged || docNumberChanged || whatsappChanged;
+  }, [
+    form.display_name,
+    form.country,
+    form.city,
+    form.document_type,
+    form.document_number,
+    form.whatsapp,
+    initial.display_name,
+    initial.country,
+    initial.city,
+    initial.document_type,
+    initial.document_number,
+    initial.whatsapp,
+  ]);
 
   async function submitProfile() {
     setSavingProfile(true);
@@ -98,6 +119,21 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
       const trimmedCountry = form.country.trim();
       if (trimmedCountry !== initial.country) {
         payload.country = trimmedCountry ? trimmedCountry.toUpperCase() : "";
+      }
+
+      const trimmedCity = form.city.trim();
+      if (trimmedCity !== initial.city) {
+        payload.city = trimmedCity;
+      }
+
+      const trimmedDocType = form.document_type.trim();
+      if (trimmedDocType !== initial.document_type) {
+        payload.document_type = trimmedDocType ? trimmedDocType.toUpperCase() : "";
+      }
+
+      const trimmedDocNumber = form.document_number.trim();
+      if (trimmedDocNumber !== initial.document_number) {
+        payload.document_number = trimmedDocNumber;
       }
 
       const trimmedWhatsapp = form.whatsapp.trim();
@@ -201,8 +237,17 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
             <input
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.country}
-              onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
+              onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value.toUpperCase() }))}
               placeholder="CO"
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
+            Ciudad
+            <input
+              className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
+              value={form.city}
+              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              placeholder="Medellín"
             />
           </label>
           <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
@@ -212,6 +257,24 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               value={form.whatsapp}
               onChange={(event) => setForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
               placeholder="+57..."
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
+            Tipo documento
+            <input
+              className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
+              value={form.document_type}
+              onChange={(event) => setForm((prev) => ({ ...prev, document_type: event.target.value.toUpperCase() }))}
+              placeholder="CC, CE, NIT..."
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
+            Número documento
+            <input
+              className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
+              value={form.document_number}
+              onChange={(event) => setForm((prev) => ({ ...prev, document_number: event.target.value }))}
+              placeholder="1234567890"
             />
           </label>
         </div>

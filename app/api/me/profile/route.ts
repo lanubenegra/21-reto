@@ -11,6 +11,9 @@ const schema = z.object({
   display_name: z.string().min(2).max(80),
   country: z.string().max(2).optional(),
   whatsapp: z.string().max(32).optional(),
+  city: z.string().max(80).optional(),
+  document_type: z.string().max(16).optional(),
+  document_number: z.string().max(64).optional(),
   timezone: z.string().max(64).optional(),
   photo_url: z.string().url().optional(),
 });
@@ -23,7 +26,7 @@ export async function GET() {
 
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("display_name,country,whatsapp,timezone,photo_url")
+    .select("display_name,country,whatsapp,city,document_type,document_number,timezone,photo_url")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -47,6 +50,9 @@ export async function PATCH(req: Request) {
     display_name: body.display_name,
     country: body.country?.trim().toUpperCase() || null,
     whatsapp: body.whatsapp?.trim() || null,
+    city: body.city?.trim() || null,
+    document_type: body.document_type?.trim().toUpperCase() || null,
+    document_number: body.document_number?.trim() || null,
     timezone: body.timezone?.trim() || null,
     photo_url: body.photo_url?.trim() || null,
   };

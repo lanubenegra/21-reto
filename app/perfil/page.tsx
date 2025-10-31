@@ -84,7 +84,7 @@ export default async function PerfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, country, whatsapp, role, created_at, email")
+    .select("display_name, country, city, document_type, document_number, whatsapp, role, created_at, email")
     .eq("id", userId)
     .maybeSingle();
 
