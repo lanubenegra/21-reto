@@ -26,7 +26,7 @@ export default function TurnstileBox({
       <Turnstile
         sitekey={sitekey}
         action={action}
-        appearance={forceVisible ? "always" : "auto"}
+        appearance={forceVisible ? "always" : "interaction-only"}
         theme="auto"
         retry="auto"
         onVerify={token => {
