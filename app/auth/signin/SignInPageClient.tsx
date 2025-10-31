@@ -470,7 +470,7 @@ export default function SignInPageClient() {
           {message && <p className="mt-5 rounded-[18px] bg-white/10 px-4 py-2 text-sm text-white">{message}</p>}
 
           {mode === "login" && showPostResetGuide && (
-            <div className="mt-5 rounded-[24px] border border-white/20 bg-white/10 p-5 text-sm text-white/85 shadow-[0_28px_60px_-36px_rgba(5,12,45,0.85)]">
+            <div className="mt-5 rounded-[24px] border border-white/20 bg-white/10 p-5 text-sm text-white/85 shadow-[0_28px_60px_-36px_rgba(5,12,45,0.85)] sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mana-primary/20 text-mana-primary">
@@ -492,37 +492,37 @@ export default function SignInPageClient() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="mt-4 space-y-3 text-sm leading-relaxed text-white/80">
-                <div className="flex gap-3">
-                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
-                    <MailCheck className="h-4 w-4" />
+              <div className="mt-4 space-y-4 text-sm leading-relaxed text-white/80 sm:space-y-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <MailCheck className="h-4 w-4 sm:h-5 sm:w-5" />
                   </span>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <p className="font-semibold text-white">Confirma el correo de seguridad</p>
                     <p>
-                      Revisa tu bandeja de entrada por el mensaje con asunto <strong>“🔐 Clave actualizada”</strong>. Ábrelo y, si tu correo lo permite, marca a Devocional Maná como remitente seguro o confirma que fuiste tú.
+                      Revisa tu bandeja de entrada por el mensaje con asunto <span role="img" aria-label="candado">🔐</span> Clave actualizada. Ábrelo y, si tu correo lo permite, marca a Devocional Maná como remitente seguro o confirma que fuiste tú.
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
-                    <Inbox className="h-4 w-4" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <Inbox className="h-4 w-4 sm:h-5 sm:w-5" />
                   </span>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <p className="font-semibold text-white">¿No lo ves?</p>
                     <p>
                       Busca en <strong>Spam</strong> o <strong>Correo no deseado</strong>. Si está allí, muévelo a tu bandeja principal y presiona “No es spam” para que futuros mensajes lleguen directo.
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
-                    <CheckCircle2 className="h-4 w-4" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
                   </span>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <p className="font-semibold text-white">Verificación final al ingresar</p>
                     <p>
-                      Al regresar aquí verás un cuadro llamado <strong>“Verificación de seguridad”</strong>. Es nuestro aliado contra los robots: solo pulsa el botón y sigue las indicaciones para terminar.
+                      Al regresar aquí verás un cuadro llamado <strong>Verificación de seguridad</strong>. Es nuestro aliado contra los robots: solo pulsa el botón y sigue las indicaciones para terminar.
                     </p>
                   </div>
                 </div>
@@ -530,7 +530,7 @@ export default function SignInPageClient() {
               <button
                 type="button"
                 onClick={() => setShowPostResetGuide(false)}
-                className="mt-5 w-full rounded-[16px] border border-white/35 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                className="mt-5 w-full rounded-[16px] border border-white/35 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60 sm:mt-6"
               >
                 Entendido, quiero iniciar sesión
               </button>
