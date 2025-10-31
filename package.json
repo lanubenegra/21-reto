@@ -30,7 +30,7 @@
     "next-auth": "^4.24.11",
     "next-client-cookies": "^2.0.5",
     "react": "19.1.0",
-    "react-turnstile": "^1.2.1",
+    "react-turnstile": "^1.1.4",
     "react-dom": "19.1.0",
     "recharts": "^3.2.1",
     "stripe": "^16.9.0",
