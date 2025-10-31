@@ -109,6 +109,7 @@ export default function SignInPageClient() {
     login: null,
   });
   const [loginFailures, setLoginFailures] = useState(0);
+  const [tokenPrefilled, setTokenPrefilled] = useState(false);
 
   const hasTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
   const showLoginCaptcha = hasTurnstile && loginFailures >= 2;
@@ -149,6 +150,7 @@ export default function SignInPageClient() {
         new URL(window.location.href).searchParams.get("email") ??
         prev.email,
     }));
+    setTokenPrefilled(true);
     setMessage("Ingresa tu nueva contraseña para completar el restablecimiento.");
 
     const url = new URL(window.location.href);
@@ -168,6 +170,7 @@ export default function SignInPageClient() {
         setFormState(prev => ({ ...prev, email: emailParam }));
       }
       setShowResetForm(true);
+      setTokenPrefilled(true);
       setMessage("Ingresa tu nueva contraseña para completar el restablecimiento.");
     }
   }, [searchParams]);
@@ -669,7 +672,8 @@ export default function SignInPageClient() {
                   onClick={() => {
                     setShowResetForm(true);
                     setMessage("Pega el token que recibiste y crea tu nueva contraseña.");
-                    setFormState(prev => ({ ...prev, newPassword: "", newPasswordConfirm: "" }));
+                    setTokenPrefilled(false);
+                    setFormState(prev => ({ ...prev, token: "", newPassword: "", newPasswordConfirm: "" }));
                   }}
                 >
                   Ya tengo el token, crear nueva contraseña
@@ -679,16 +683,25 @@ export default function SignInPageClient() {
 
               {showResetForm && (
                 <form className="space-y-3 rounded-[20px] bg-white/8 p-4 text-sm text-white/80" onSubmit={handleReset}>
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Token</label>
-                    <input
-                      required
-                      value={formState.token}
-                      onChange={onInputChange("token")}
-                      className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                      placeholder="Pega el token"
-                    />
-                  </div>
+                  {tokenPrefilled ? (
+                    <>
+                      <input type="hidden" value={formState.token} readOnly />
+                      <div className="rounded-[18px] border border-white/20 bg-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white/80">
+                        Enlace validado
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Código del enlace</label>
+                      <input
+                        required
+                        value={formState.token}
+                        onChange={onInputChange("token")}
+                        className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
+                        placeholder="Pega el código que recibiste"
+                      />
+                    </div>
+                  )}
                   <PasswordField
                     label="Nueva contraseña"
                     name="newPassword"
