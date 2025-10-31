@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from 
 import { signIn, getProviders, type ClientSafeProvider } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, X, ChevronRight, Loader2 } from "lucide-react";
+import { ShieldCheck, X, ChevronRight, Loader2, MailCheck, Inbox, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PasswordField } from "@/components/forms/PasswordField";
@@ -110,6 +110,7 @@ export default function SignInPageClient() {
   });
   const [loginFailures, setLoginFailures] = useState(0);
   const [tokenPrefilled, setTokenPrefilled] = useState(false);
+  const [showPostResetGuide, setShowPostResetGuide] = useState(false);
 
   const hasTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
   const showLoginCaptcha = hasTurnstile && loginFailures >= 2;
@@ -122,6 +123,12 @@ export default function SignInPageClient() {
     const param = (searchParams.get("mode") as Mode) ?? "login";
     setMode(param);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (mode !== "login") {
+      setShowPostResetGuide(false);
+    }
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== "forgot") {
@@ -342,7 +349,8 @@ export default function SignInPageClient() {
         body: JSON.stringify({ token: formState.token, password: formState.newPassword }),
       });
       if (response.ok) {
-        setMessage("Contraseña actualizada. Inicia sesión nuevamente.");
+        setMessage("Contraseña actualizada. Antes de continuar, revisa estas indicaciones.");
+        setShowPostResetGuide(true);
         setMode("login");
         setFormState(prev => ({ ...prev, newPassword: "", newPasswordConfirm: "", token: "" }));
       } else {
@@ -456,6 +464,74 @@ export default function SignInPageClient() {
           </div>
 
           {message && <p className="mt-5 rounded-[18px] bg-white/10 px-4 py-2 text-sm text-white">{message}</p>}
+
+          {mode === "login" && showPostResetGuide && (
+            <div className="mt-5 rounded-[24px] border border-white/20 bg-white/10 p-5 text-sm text-white/85 shadow-[0_28px_60px_-36px_rgba(5,12,45,0.85)]">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-mana-primary/20 text-mana-primary">
+                    <ShieldCheck className="h-6 w-6" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-white">Tu nueva contraseña quedó activa</p>
+                    <p className="text-white/75">
+                      Antes de volver a entrar, sigue estos pasos sencillos para que el sistema reconozca que eres tú.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPostResetGuide(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+                  aria-label="Ocultar recomendaciones"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-4 space-y-3 text-sm leading-relaxed text-white/80">
+                <div className="flex gap-3">
+                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <MailCheck className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-white">Confirma el correo de seguridad</p>
+                    <p>
+                      Revisa tu bandeja de entrada por el mensaje con asunto <strong>“🔐 Clave actualizada”</strong>. Ábrelo y, si tu correo lo permite, marca a Devocional Maná como remitente seguro o confirma que fuiste tú.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <Inbox className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-white">¿No lo ves?</p>
+                    <p>
+                      Busca en <strong>Spam</strong> o <strong>Correo no deseado</strong>. Si está allí, muévelo a tu bandeja principal y presiona “No es spam” para que futuros mensajes lleguen directo.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/12 text-mana-primary">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-white">Verificación final al ingresar</p>
+                    <p>
+                      Al regresar aquí verás un cuadro llamado <strong>“Verificación de seguridad”</strong>. Es nuestro aliado contra los robots: solo pulsa el botón y sigue las indicaciones para terminar.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPostResetGuide(false)}
+                className="mt-5 w-full rounded-[16px] border border-white/35 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+              >
+                Entendido, quiero iniciar sesión
+              </button>
+            </div>
+          )}
 
           {mode === "login" && (
             <div className="mt-6 space-y-5">
