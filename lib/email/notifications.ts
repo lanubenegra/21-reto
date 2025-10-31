@@ -4,6 +4,16 @@ import { defaultEmailContext, templateBase } from "./context";
 
 type Data = Record<string, unknown>;
 
+function sanitizeCategory(value?: string | null) {
+  if (!value) return undefined;
+  const ascii = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "")
+    .trim();
+  return ascii || undefined;
+}
+
 function composeData(data: Data) {
   const ctx = defaultEmailContext();
   const base = templateBase(ctx);
@@ -57,7 +67,7 @@ async function safeSend({
 }): Promise<SendEmailResult> {
   const merged = composeData(data);
   const subject = typeof merged.subject === "string" ? merged.subject : undefined;
-  const tag = typeof merged.tag === "string" ? merged.tag : undefined;
+  const tag = sanitizeCategory(typeof merged.tag === "string" ? merged.tag : undefined);
 
   if (!hasTemplateId(templateKey)) {
     console.warn(`[email] template ${templateKey} missing; fallback send`, { to });
@@ -164,7 +174,7 @@ export const sendVerifyEmail = (to: string, data: Data) =>
     data: {
       subject: "✅ Un toque final para desbloquear tu nuevo hogar espiritual",
       preheader: "Activa tu cuenta y protege tu acceso.",
-      tag: "Verificación",
+      tag: "Verificacion",
       ...data,
     },
   });
