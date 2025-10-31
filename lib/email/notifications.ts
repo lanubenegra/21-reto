@@ -172,7 +172,7 @@ export const sendVerifyEmail = (to: string, data: Data) =>
     to,
     templateKey: "verifyEmail",
     data: {
-      subject: "✅ Un toque final para desbloquear tu nuevo hogar espiritual",
+      subject: "Estás a un clic de comenzar los retos que transformarán tus hábitos",
       preheader: "Activa tu cuenta y protege tu acceso.",
       tag: "Verificacion",
       ...data,
