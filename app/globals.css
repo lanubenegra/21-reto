@@ -102,6 +102,18 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  .cf-ts-wrapper {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 25, 56, 0.65);
+    backdrop-filter: blur(6px);
+    padding: 0.75rem;
+  }
+
   .challenge-area-label {
     font-family: var(--font-head, var(--font-body, "Inter")), system-ui, sans-serif;
     text-transform: uppercase;
