@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
 import { Input } from '@/components/ui/input'
@@ -63,6 +63,8 @@ export default function Pago() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [loading, setLoading] = useState<SKU | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const profilePrefilledRef = useRef(false)
+  const localPrefillEmailRef = useRef<string | null>(null)
   const cookieCountry = useMemo(() => {
     if (typeof document === 'undefined') return ''
     const match = document.cookie.split(';').map(entry => entry.trim()).find(entry => entry.startsWith('country='))
@@ -117,10 +119,119 @@ export default function Pago() {
   }, [session?.user?.name])
 
   useEffect(() => {
+    if (!isLoggedIn || profilePrefilledRef.current) return
+    let cancelled = false
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/me/profile', { cache: 'no-store', credentials: 'include' })
+        if (!res.ok) return
+        const data = await res.json().catch(() => null)
+        if (cancelled || !data?.profile) return
+        const profile = data.profile as {
+          display_name?: string | null
+          country?: string | null
+          whatsapp?: string | null
+        }
+        setForm(prev => {
+          const next: FormState = { ...prev }
+          let changed = false
+          if (!prev.name.trim() && profile.display_name) {
+            next.name = profile.display_name
+            changed = true
+          }
+          if (!prev.phone.trim() && profile.whatsapp) {
+            next.phone = profile.whatsapp
+            changed = true
+          }
+          if (!prev.country.trim() && profile.country) {
+            next.country = profile.country
+            changed = true
+          }
+          return changed ? next : prev
+        })
+        profilePrefilledRef.current = true
+      } catch (error) {
+        console.error('[pago] profile prefill failed', error)
+      }
+    }
+
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [isLoggedIn])
+
+  useEffect(() => {
     if (cookieCountry && !form.country) {
       setForm(prev => ({ ...prev, country: cookieCountry }))
     }
   }, [cookieCountry, form.country])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const emailKey = form.email.trim().toLowerCase()
+    if (!emailKey) {
+      localPrefillEmailRef.current = null
+      return
+    }
+    if (localPrefillEmailRef.current === emailKey) return
+
+    const raw = window.localStorage.getItem(`donation-profile:${emailKey}`)
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw) as Partial<FormState>
+        setForm(prev => {
+          const next: FormState = { ...prev }
+          let changed = false
+          if (!prev.name.trim() && saved.name) {
+            next.name = saved.name
+            changed = true
+          }
+          if (!prev.phone.trim() && saved.phone) {
+            next.phone = saved.phone
+            changed = true
+          }
+          if (!prev.country.trim() && saved.country) {
+            next.country = saved.country
+            changed = true
+          }
+          if (!prev.city.trim() && saved.city) {
+            next.city = saved.city
+            changed = true
+          }
+          if (!prev.documentType.trim() && saved.documentType) {
+            next.documentType = saved.documentType
+            changed = true
+          }
+          if (!prev.documentNumber.trim() && saved.documentNumber) {
+            next.documentNumber = saved.documentNumber
+            changed = true
+          }
+          return changed ? next : prev
+        })
+      } catch (error) {
+        console.error('[pago] failed to parse stored donor profile', error)
+      }
+    }
+
+    localPrefillEmailRef.current = emailKey
+  }, [form.email])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const emailKey = form.email.trim().toLowerCase()
+    if (!emailKey) return
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      country: form.country.trim(),
+      city: form.city.trim(),
+      documentType: form.documentType.trim(),
+      documentNumber: form.documentNumber.trim(),
+    }
+    window.localStorage.setItem(`donation-profile:${emailKey}`, JSON.stringify(payload))
+  }, [form.name, form.phone, form.country, form.city, form.documentType, form.documentNumber, form.email])
 
   const handleChange = (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [field]: event.target.value }))
