@@ -25,6 +25,10 @@ export default function TurnstileBox({
     <div className="cf-ts-wrapper flex min-h-[72px] items-center">
       <Turnstile
         sitekey={sitekey}
+        action={action}
+        appearance={forceVisible ? "always" : "auto"}
+        theme="auto"
+        retry="auto"
         onVerify={token => {
           setVerified(true);
           onVerify(token);
@@ -34,12 +38,6 @@ export default function TurnstileBox({
           setVerified(false);
           onVerify("");
           onExpire?.();
-        }}
-        options={{
-          appearance: forceVisible ? "always" : "auto",
-          theme: "auto",
-          retry: "auto",
-          action,
         }}
       />
       <span className={`ml-2 text-xs transition-opacity ${verified ? "opacity-70" : "opacity-40"}`}>
