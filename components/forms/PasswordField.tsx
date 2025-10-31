@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
 
 type Props = {
   label: string;
@@ -40,9 +41,10 @@ export function PasswordField({
         <button
           type="button"
           onClick={() => setShow(prev => !prev)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 hover:text-white"
+          className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+          aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
         >
-          {show ? "Ocultar" : "Ver"}
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
     </label>
