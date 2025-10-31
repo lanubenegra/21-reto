@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const csp = [
-  "default-src 'self'",
+  "default-src 'self' https: data: blob:",
   "img-src 'self' https: data:",
   "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
   "font-src 'self' fonts.gstatic.com",
