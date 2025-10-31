@@ -1,7 +1,5 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV !== "production";
-
 const csp = [
   "default-src 'self'",
   "img-src 'self' https: data:",
@@ -9,18 +7,16 @@ const csp = [
   "font-src 'self' fonts.gstatic.com",
   [
     "script-src 'self'",
-    isDev ? "'unsafe-eval'" : "",
     "'unsafe-inline'",
+    "'unsafe-eval'",
     "js.stripe.com",
     "checkout.wompi.co",
     "challenges.cloudflare.com",
     "www.youtube.com",
     "www.youtube-nocookie.com",
-  ]
-    .filter(Boolean)
-    .join(" "),
+  ].join(" "),
   "frame-src 'self' js.stripe.com checkout.stripe.com checkout.wompi.co challenges.cloudflare.com www.youtube.com www.youtube-nocookie.com",
-  "connect-src 'self' *.supabase.co *.supabase.net api.stripe.com production.wompi.co sandbox.wompi.co",
+  "connect-src 'self' *.supabase.co *.supabase.net api.stripe.com production.wompi.co sandbox.wompi.co challenges.cloudflare.com",
 ].join("; ");
 
 const securityHeaders = [
