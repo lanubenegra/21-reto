@@ -34,6 +34,20 @@ function verifyChecksum(raw: string, secret: string, candidates: string[]) {
   return candidates.length > 0;
 }
 
+function extractPaymentLinkId(url: string | null | undefined) {
+  if (!url) return null;
+  const match = url.match(/\/l\/([A-Za-z0-9_-]+)/);
+  return match?.[1] ?? null;
+}
+
+function getString(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   const raw = await req.text();
   const headers = req.headers as Headers;
@@ -60,26 +74,73 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 401 });
   }
 
-  const rawEmail = evt?.data?.transaction?.customer_email ?? null;
+  const transaction = evt?.data?.transaction ?? {};
+  const rawEmail = transaction?.customer_email ?? null;
   const email = normalizeEmail(rawEmail);
-  const ref = evt?.data?.transaction?.reference ?? "";
-  const sku = /combo/i.test(ref) ? "combo" : /agenda/i.test(ref) ? "agenda" : "retos";
+  const ref = getString(transaction?.reference) ?? "";
+  const amount = Number(transaction?.amount_in_cents ?? 0);
+  const currency = getString(transaction?.currency) ?? null;
+  const status = getString(transaction?.status) ?? null;
+  const paymentMethod = transaction?.payment_method ?? {};
+  const paymentExtra = paymentMethod?.extra ?? {};
+  const paymentLinkId = getString(transaction?.payment_link_id);
 
-  const amount = evt?.data?.transaction?.amount_in_cents ?? 0;
-  const currency = evt?.data?.transaction?.currency ?? null;
-  const status = evt?.data?.transaction?.status ?? null;
+  const { data: priceRows } = await supabaseAdmin
+    .from("prices")
+    .select("product, amount, currency, external_id")
+    .eq("provider", "wompi")
+    .eq("active", true);
 
-  const context = defaultEmailContext(req);
+  const matchedPrice = (priceRows ?? []).find((row) => {
+    if (!row.product || row.amount == null) return false;
+    const rowCurrency = (row.currency ?? "").toUpperCase();
+    const expectedCents =
+      rowCurrency === "COP" || rowCurrency === "CRC" || rowCurrency === "CLP"
+        ? Math.round(Number(row.amount) * 100)
+        : Math.round(Number(row.amount) * 100);
+    if (!expectedCents || expectedCents !== amount) return false;
+
+    const linkId = extractPaymentLinkId(row.external_id);
+    if (!linkId) return true;
+
+    const methodLink = paymentLinkId ?? getString((paymentExtra as Record<string, unknown>)?.payment_link_id);
+    const description = getString((paymentExtra as Record<string, unknown>)?.payment_description);
+
+    return ref.includes(linkId) || methodLink === linkId || (description ? description.includes(linkId) : false);
+  });
+
+  if (!matchedPrice) {
+    console.warn("[wompi webhook] unexpected transaction, skipping entitlement", {
+      ref,
+      amount,
+      currency,
+      email,
+    });
+    await supabaseAdmin.from("orders").insert({
+      email: rawEmail || email,
+      sku: "unknown",
+      provider: "wompi",
+      status: "ignored",
+      amount,
+      currency,
+      raw: evt,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  const sku = matchedPrice.product as "retos" | "agenda" | "combo";
 
   await supabaseAdmin.from("orders").insert({
     email: rawEmail || email,
     sku,
     provider: "wompi",
-    status: "paid",
+    status: status?.toUpperCase() === "APPROVED" ? "paid" : status ?? "pending",
     amount,
     currency,
     raw: evt,
   });
+
+  const context = defaultEmailContext(req);
 
   if (email) {
     const products = sku === "combo" ? ["agenda", "retos"] : [sku];

@@ -113,8 +113,8 @@ export default async function PerfilPage() {
   }));
 
   const defaultName =
-    profile?.display_name?.trim() ??
-    (user.name?.trim() ?? "") ??
+    (profile?.display_name && profile.display_name.trim()) ||
+    (user.name && user.name.trim()) ||
     (email ? email.split("@")[0] : "");
 
   const state = await getUserState(userId, email);
