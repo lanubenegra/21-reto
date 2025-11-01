@@ -508,8 +508,7 @@ export default function SignInPageClient() {
                   <div className="space-y-1.5">
                     <p className="font-semibold text-white">Abre el correo de bienvenida</p>
                     <p>
-                      Busca el mensaje con el asunto <span role="img" aria-label="brillo">✨</span>{" "}
-                      <strong>Estás a un clic de comenzar…</strong> y toca el botón “Confirmar mi cuenta”.
+                      Busca el mensaje de Devocional Maná que te invita a confirmar tu cuenta (puede incluir un ícono <span role="img" aria-label="brillo">✨</span> o un título similar). Abre el correo y presiona el botón “Confirmar mi cuenta”.
                     </p>
                   </div>
                 </div>
