@@ -93,7 +93,7 @@ export default function SignInPageClient() {
     password: "",
     confirmPassword: "",
     country: "",
-    region: "",
+    city: "",
     token: "",
     newPassword: "",
     newPasswordConfirm: "",
@@ -279,7 +279,7 @@ export default function SignInPageClient() {
           password: formState.password,
           confirmPassword: formState.confirmPassword,
           country: formState.country,
-          region: formState.region,
+          city: formState.city,
           consent: termsAccepted,
           captchaToken: captchaTokens.register,
         }),
@@ -729,14 +729,14 @@ export default function SignInPageClient() {
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Estado / Región</label>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white">Ciudad</label>
                     <input
                       type="text"
                       required
-                      value={formState.region}
-                      onChange={onInputChange("region")}
+                      value={formState.city}
+                      onChange={onInputChange("city")}
                       className="mt-1 w-full rounded-[18px] border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white focus:ring-2 focus:ring-white/50"
-                      placeholder="Antioquia"
+                      placeholder="Medellín"
                     />
                   </div>
                 </div>

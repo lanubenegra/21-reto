@@ -17,7 +17,7 @@ const schema = z.object({
   password: z.string().min(10).max(128),
   confirmPassword: z.string().min(10).max(128),
   country: z.string().min(2).max(64),
-  region: z.string().min(2).max(64),
+  city: z.string().min(2).max(64),
   consent: z.boolean(),
   captchaToken: z.string().optional(),
 });
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     email,
     password: body.password,
     email_confirm: false,
-    user_metadata: { name: body.name, country: body.country, region: body.region },
+    user_metadata: { name: body.name, country: body.country, city: body.city },
   });
 
   if (createError || !created?.user?.id) {
@@ -143,6 +143,8 @@ export async function POST(request: Request) {
       id: userId,
       email,
       display_name: displayName,
+      country: body.country?.trim().toUpperCase() || null,
+      city: body.city?.trim() || null,
       role: "user",
     })
     .throwOnError();

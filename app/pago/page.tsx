@@ -73,6 +73,34 @@ export default function Pago() {
     return value.length === 2 ? value : ''
   }, [])
 
+  const countryDisplayName = useMemo(() => {
+    if (typeof Intl === 'undefined' || !cookieCountry) return ''
+    try {
+      const display = new Intl.DisplayNames(['es'], { type: 'region' })
+      return display.of(cookieCountry) ?? cookieCountry
+    } catch {
+      return cookieCountry
+    }
+  }, [cookieCountry])
+
+  const displayCountryValue = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return ""
+    const upper = trimmed.toUpperCase()
+    if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
+      if (typeof Intl !== "undefined") {
+        try {
+          const display = new Intl.DisplayNames(["es"], { type: "region" })
+          return display.of(upper) ?? trimmed
+        } catch {
+          return trimmed
+        }
+      }
+      return trimmed
+    }
+    return trimmed
+  }
+
   const normalizeCountry = (value: string) => {
     const trimmed = value.trim()
     if (!trimmed) return cookieCountry || 'US'
@@ -148,7 +176,7 @@ export default function Pago() {
             changed = true
           }
           if (!prev.country.trim() && profile.country) {
-            next.country = profile.country
+            next.country = displayCountryValue(profile.country)
             changed = true
           }
           if (!prev.city.trim() && profile.city) {
@@ -179,9 +207,9 @@ export default function Pago() {
 
   useEffect(() => {
     if (cookieCountry && !form.country) {
-      setForm(prev => ({ ...prev, country: cookieCountry }))
+      setForm(prev => ({ ...prev, country: countryDisplayName || cookieCountry }))
     }
-  }, [cookieCountry, form.country])
+  }, [cookieCountry, countryDisplayName, form.country])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -208,7 +236,7 @@ export default function Pago() {
             changed = true
           }
           if (!prev.country.trim() && saved.country) {
-            next.country = saved.country
+            next.country = displayCountryValue(saved.country)
             changed = true
           }
           if (!prev.city.trim() && saved.city) {
@@ -324,8 +352,8 @@ export default function Pago() {
       }
     }
 
-    if (!isLoggedIn && form.password.trim().length < 8) {
-      setFeedback('Crea una contraseña con al menos 8 caracteres.')
+    if (!isLoggedIn && form.password.trim().length < 10) {
+      setFeedback('Crea una contraseña con al menos 10 caracteres.')
       return false
     }
 
@@ -468,7 +496,7 @@ export default function Pago() {
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-6 py-12">
         <header className="space-y-3 text-center">
           <span className="text-xs uppercase tracking-[0.45em] text-white/70">Ministerio Maná · Donaciones</span>
-          <h1 className="text-4xl font-semibold md:text-5xl">Sostén 21 Retos — Donación en línea</h1>
+          <h1 className="text-4xl font-semibold md:text-5xl">Apoya 21 Retos — Donación en línea</h1>
           <p className="mx-auto max-w-2xl text-sm text-white/80">
             Tus donaciones permiten que más personas vivan los 21 Retos y accedan a la Agenda Devocional. Llena tus datos, confirma con tu correo y completa el aporte a través de nuestras pasarelas seguras (Stripe o Wompi según tu país). Si estás en Colombia necesitaremos tu tipo y número de documento para fines de facturación.
           </p>
@@ -558,7 +586,7 @@ export default function Pago() {
                       type="password"
                       value={form.password}
                       onChange={handleChange('password')}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 10 caracteres"
                       className="bg-white/90 text-slate-900"
                     />
                   </div>
