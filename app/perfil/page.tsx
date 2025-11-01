@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getUserState } from "@/lib/server/state-store";
 import type { PersonalTask, UserState } from "@/lib/user-state";
 import ProfileClient, { type GoalHighlight, type NoteHighlight } from "./ProfileClient";
+import { normalizeEmail } from "@/lib/email";
 
 const fallbackGoalId = () => `goal-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -89,11 +90,19 @@ export default async function PerfilPage() {
     .maybeSingle();
 
   const email = user.email ?? profile?.email ?? "";
+  const normalizedEmail = normalizeEmail(email);
 
   const { data: entitlementsData } = await supabase
     .from("entitlements")
     .select("product, active, created_at")
-    .or(`user_id.eq.${userId},email.eq.${email}`)
+    .or(
+      [
+        `user_id.eq.${userId}`,
+        normalizedEmail ? `email.eq.${normalizedEmail}` : null,
+      ]
+        .filter(Boolean)
+        .join(","),
+    )
     .order("product");
 
   const entitlements = (entitlementsData ?? []).map((item) => ({
