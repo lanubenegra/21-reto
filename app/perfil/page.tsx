@@ -89,8 +89,9 @@ export default async function PerfilPage() {
     .eq("id", userId)
     .maybeSingle();
 
-  const email = user.email ?? profile?.email ?? "";
-  const normalizedEmail = normalizeEmail(email);
+  const rawEmail = user.email ?? profile?.email ?? "";
+  const normalizedEmail = normalizeEmail(rawEmail);
+  const email = normalizedEmail || rawEmail;
 
   const { data: entitlementsData } = await supabase
     .from("entitlements")
@@ -111,6 +112,11 @@ export default async function PerfilPage() {
     created_at: item.created_at,
   }));
 
+  const defaultName =
+    profile?.display_name?.trim() ??
+    (user.name?.trim() ?? "") ??
+    (email ? email.split("@")[0] : "");
+
   const state = await getUserState(userId, email);
   const goals = buildGoalHighlights(state);
   const notes = buildNoteHighlights(state);
@@ -123,6 +129,7 @@ export default async function PerfilPage() {
         entitlements={entitlements}
         goals={goals}
         notes={notes}
+        defaultName={defaultName}
       />
     </main>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -42,19 +42,28 @@ type Props = {
   entitlements: Entitlement[];
   goals: GoalHighlight[];
   notes: NoteHighlight[];
+  defaultName: string;
 };
 
-export default function ProfileClient({ profile, email, entitlements, goals, notes }: Props) {
+function sanitizeDocNumber(value: string | null | undefined, email: string) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (email && trimmed.toLowerCase() === email.toLowerCase()) return "";
+  return trimmed;
+}
+
+export default function ProfileClient({ profile, email, entitlements, goals, notes, defaultName }: Props) {
   const initial = useMemo(
     () => ({
-      display_name: profile?.display_name?.trim() ?? "",
+      display_name: profile?.display_name?.trim() || defaultName.trim() || "",
       country: profile?.country?.trim() ?? "",
       city: profile?.city?.trim() ?? "",
       document_type: profile?.document_type?.trim() ?? "",
-      document_number: profile?.document_number?.trim() ?? "",
+      document_number: sanitizeDocNumber(profile?.document_number, email),
       whatsapp: profile?.whatsapp?.trim() ?? "",
     }),
-    [profile?.city, profile?.country, profile?.display_name, profile?.document_number, profile?.document_type, profile?.whatsapp],
+    [profile?.city, profile?.country, profile?.display_name, profile?.document_number, profile?.document_type, profile?.whatsapp, defaultName, email],
   );
 
   const [form, setForm] = useState(initial);
@@ -64,9 +73,14 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setForm(initial);
+  }, [initial]);
 
   const entitlementList = useMemo(
     () =>
@@ -170,11 +184,14 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
     setPasswordMessage(null);
     setPasswordError(null);
     try {
-      if (!currentPassword || !newPassword) {
-        throw new Error("Completa ambos campos de contraseña.");
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        throw new Error("Completa todos los campos de contraseña.");
       }
       if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
         throw new Error("La nueva contraseña debe tener al menos 10 caracteres, letras y números.");
+      }
+      if (newPassword !== confirmPassword) {
+        throw new Error("Las contraseñas nuevas no coinciden.");
       }
       const res = await fetch("/api/me/password/change", {
         method: "POST",
@@ -197,6 +214,7 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
       }
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
       setPasswordMessage("¡Contraseña cambiada! Por seguridad, cierra sesión y vuelve a entrar.");
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Error desconocido al cambiar la contraseña.");
@@ -229,6 +247,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.display_name}
               onChange={(event) => setForm((prev) => ({ ...prev, display_name: event.target.value }))}
+              name="full_name"
+              autoComplete="name"
               placeholder="Tu nombre"
             />
           </label>
@@ -238,6 +258,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.country}
               onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value.toUpperCase() }))}
+              name="country"
+              autoComplete="country-name"
               placeholder="CO"
             />
           </label>
@@ -247,6 +269,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.city}
               onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              name="city"
+              autoComplete="address-level2"
               placeholder="Medellín"
             />
           </label>
@@ -256,6 +280,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.whatsapp}
               onChange={(event) => setForm((prev) => ({ ...prev, whatsapp: event.target.value }))}
+              name="whatsapp"
+              autoComplete="tel"
               placeholder="+57..."
             />
           </label>
@@ -265,6 +291,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.document_type}
               onChange={(event) => setForm((prev) => ({ ...prev, document_type: event.target.value.toUpperCase() }))}
+              name="document_type"
+              autoComplete="off"
               placeholder="CC, CE, NIT..."
             />
           </label>
@@ -274,6 +302,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={form.document_number}
               onChange={(event) => setForm((prev) => ({ ...prev, document_number: event.target.value }))}
+              name="document_number"
+              autoComplete="off"
               placeholder="1234567890"
             />
           </label>
@@ -290,6 +320,13 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
       <section className="rounded-xl border border-mana-primary/10 bg-white p-4 shadow-xs md:max-w-xl">
         <h2 className="text-lg font-semibold text-mana-primary">Seguridad</h2>
         <p className="text-sm text-mana-primary/70">Actualiza tu contraseña cuando lo necesites.</p>
+        <p className="text-xs text-mana-primary/60">
+          ¿No recuerdas tu contraseña actual?{' '}
+          <Link href="/auth/signin?mode=forgot" className="underline">
+            Recupera tu acceso aquí
+          </Link>
+          .
+        </p>
         <div className="mt-4 space-y-3">
           <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
             Contraseña actual
@@ -298,6 +335,8 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
+              name="current_password"
+              autoComplete="current-password"
             />
           </label>
           <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
@@ -307,6 +346,19 @@ export default function ProfileClient({ profile, email, entitlements, goals, not
               className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
+              name="new_password"
+              autoComplete="new-password"
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-mana-primary/70">
+            Confirma tu nueva contraseña
+            <input
+              type="password"
+              className="mt-1 w-full rounded-full border border-mana-primary/20 px-4 py-2 text-sm"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              name="confirm_password"
+              autoComplete="new-password"
             />
           </label>
         </div>
