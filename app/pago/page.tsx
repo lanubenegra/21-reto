@@ -6,6 +6,7 @@ import { useSession, signIn } from 'next-auth/react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import TurnstileBox from '@/components/security/TurnstileBox'
 import { HeartHandshake, Loader2 } from 'lucide-react'
 
 type SKU = 'retos' | 'agenda' | 'combo'
@@ -14,6 +15,7 @@ type FormState = {
   name: string
   email: string
   password: string
+  passwordConfirm: string
   phone: string
   country: string
   city: string
@@ -25,6 +27,7 @@ const INITIAL_FORM: FormState = {
   name: '',
   email: '',
   password: '',
+  passwordConfirm: '',
   phone: '',
   country: '',
   city: '',
@@ -63,8 +66,10 @@ export default function Pago() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [loading, setLoading] = useState<SKU | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const profilePrefilledRef = useRef(false)
   const localPrefillEmailRef = useRef<string | null>(null)
+  const hasTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const cookieCountry = useMemo(() => {
     if (typeof document === 'undefined') return ''
     const match = document.cookie.split(';').map(entry => entry.trim()).find(entry => entry.startsWith('country='))
@@ -341,6 +346,7 @@ export default function Pago() {
           name: 'Nombre completo',
           email: 'Correo electrónico',
           password: 'Contraseña',
+          passwordConfirm: 'Confirma tu contraseña',
           phone: 'Teléfono',
           country: 'País',
           city: 'Ciudad',
@@ -354,6 +360,11 @@ export default function Pago() {
 
     if (!isLoggedIn && form.password.trim().length < 10) {
       setFeedback('Crea una contraseña con al menos 10 caracteres.')
+      return false
+    }
+
+    if (!isLoggedIn && form.password !== form.passwordConfirm) {
+      setFeedback('Las contraseñas no coinciden.')
       return false
     }
 
@@ -371,53 +382,73 @@ export default function Pago() {
       return true
     }
 
-    const registerResponse = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name, email, password: form.password }),
-    })
-
-    const payload = (await registerResponse.json().catch(() => ({}))) as { message?: string }
-
-    if (registerResponse.status === 201 || registerResponse.status === 202) {
-      setFeedback(
-        payload?.message ??
-          'Te enviamos un correo para confirmar tu cuenta. Revísalo antes de continuar con la donación.'
-      )
+    if (hasTurnstile && !captchaToken) {
+      setFeedback('Completa la verificación de seguridad.')
       return false
     }
 
-    if (!registerResponse.ok) {
-      const message =
-        payload?.message ?? 'No fue posible crear tu cuenta. Si ya tienes una, inicia sesión primero.'
-      // Si la cuenta ya existe intentamos iniciar sesión con la contraseña ingresada.
-      if (registerResponse.status === 409 || message.toLowerCase().includes('existe')) {
-        const loginResult = await signIn('credentials', { email, password: form.password, redirect: false })
-        if (loginResult?.error) {
-          setFeedback(
-            'El correo ya tiene una cuenta. Confirma tu correo o inicia sesión desde la sección Acceso.'
-          )
-          return false
-        }
-        return true
+    const countryCode = normalizeCountry(form.country)
+    const cityValue = form.city.trim()
+
+    try {
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email,
+          password: form.password,
+          confirmPassword: form.passwordConfirm,
+          country: countryCode,
+          city: cityValue,
+          captchaToken,
+        }),
+      })
+
+      const payload = (await registerResponse.json().catch(() => ({}))) as { message?: string }
+
+      if (registerResponse.status === 201 || registerResponse.status === 202) {
+        setFeedback(
+          payload?.message ??
+            'Te enviamos un correo para confirmar tu cuenta. Revísalo antes de continuar con la donación.'
+        )
+        return false
       }
 
-      setFeedback(message)
-      return false
+      if (!registerResponse.ok) {
+        const message =
+          payload?.message ?? 'No fue posible crear tu cuenta. Si ya tienes una, inicia sesión primero.'
+        // Si la cuenta ya existe intentamos iniciar sesión con la contraseña ingresada.
+        if (registerResponse.status === 409 || message.toLowerCase().includes('existe')) {
+          const loginResult = await signIn('credentials', { email, password: form.password, redirect: false })
+          if (loginResult?.error) {
+            setFeedback(
+              'El correo ya tiene una cuenta. Confirma tu correo o inicia sesión desde la sección Acceso.'
+            )
+            return false
+          }
+          return true
+        }
+
+        setFeedback(message)
+        return false
+      }
+
+      const signInResult = await signIn('credentials', {
+        email,
+        password: form.password,
+        redirect: false,
+      })
+
+      if (signInResult?.error) {
+        setFeedback('Cuenta creada. Inicia sesión con tu nueva contraseña e intenta nuevamente.')
+        return false
+      }
+
+      return true
+    } finally {
+      setCaptchaToken(null)
     }
-
-    const signInResult = await signIn('credentials', {
-      email,
-      password: form.password,
-      redirect: false,
-    })
-
-    if (signInResult?.error) {
-      setFeedback('Cuenta creada. Inicia sesión con tu nueva contraseña e intenta nuevamente.')
-      return false
-    }
-
-    return true
   }
 
   async function handleDonation(sku: SKU) {
@@ -588,10 +619,37 @@ export default function Pago() {
                       onChange={handleChange('password')}
                       placeholder="Mínimo 10 caracteres"
                       className="bg-white/90 text-slate-900"
+                      autoComplete="new-password"
                     />
                   </div>
                 )}
               </div>
+
+              {!isLoggedIn && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="donor-password-confirm" className="text-xs uppercase tracking-[0.3em] text-white/60">Confirma tu contraseña</Label>
+                    <Input
+                      id="donor-password-confirm"
+                      type="password"
+                      value={form.passwordConfirm}
+                      onChange={handleChange('passwordConfirm')}
+                      placeholder="Repite tu contraseña"
+                      className="bg-white/90 text-slate-900"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  {hasTurnstile && (
+                    <div className="rounded-[18px] border border-white/20 bg-white/5 px-4 py-3">
+                      <TurnstileBox
+                        action="donation"
+                        onVerify={token => setCaptchaToken(token ?? null)}
+                        onExpire={() => setCaptchaToken(null)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </form>
 
             {feedback && (
